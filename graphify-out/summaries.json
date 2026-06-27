@@ -1,0 +1,77 @@
+{
+  "pipeline": {
+    "repo_path": "C:\\Users\\ayiti\\Downloads\\pipeline",
+    "total_files": 17,
+    "total_chunks": 210,
+    "files": {
+      "pl_pbnafc_dly_r4_wkf_dlh4.json": {
+        "chunks": 9,
+        "language": "json"
+      },
+      "pl_pbnafc_dly_r4_wkf_dlh5.json": {
+        "chunks": 9,
+        "language": "json"
+      },
+      "pl_pbnafc_dly_r4_wkf_ss01.json": {
+        "chunks": 9,
+        "language": "json"
+      },
+      "pl_pbnafc_dly_r4_wkf_ss02.json": {
+        "chunks": 9,
+        "language": "json"
+      },
+      "pl_pbnafc_dly_r4_wkf_ss03.json": {
+        "chunks": 9,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_ip_wkf_ics.json": {
+        "chunks": 19,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_r4_cashier_dlh4.json": {
+        "chunks": 10,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_r4_cashier_dlh5.json": {
+        "chunks": 10,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_r4_cashier_ss01.json": {
+        "chunks": 10,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_r4_cashier_ss02.json": {
+        "chunks": 10,
+        "language": "json"
+      },
+      "pl_pbnafc_dy_r4_cashier_ss03.json": {
+        "chunks": 10,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_dlh4.json": {
+        "chunks": 17,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_dlh5.json": {
+        "chunks": 17,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_ss01.json": {
+        "chunks": 17,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_ss02.json": {
+        "chunks": 17,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_ss03.json": {
+        "chunks": 17,
+        "language": "json"
+      },
+      "pl_pbnafc_edr_venr.json": {
+        "chunks": 11,
+        "language": "json"
+      }
+    }
+  }
+}

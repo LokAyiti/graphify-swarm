@@ -1,0 +1,119 @@
+"""
+merger.py — combines vector hits and graph contexts into a single
+LLM-ready context string.
+
+Layout
+------
+  [VECTOR SEARCH RESULTS]
+    Result 1 … N  (code blocks, truncated to budget)
+
+  [STRUCTURAL GRAPH CONTEXT]
+    Per-file summaries: imports, symbols, ADF metadata, call edges
+"""
+from __future__ import annotations
+
+from graphify.query.router import GraphContext, VectorHit
+
+# Character budgets
+_DEFAULT_TOTAL   = 7_000   # total context chars sent to LLM
+_DEFAULT_CHUNK   = 1_000   # max chars per code chunk
+_VECTOR_SHARE    = 0.65    # 65 % for code, 35 % for graph context
+
+
+def format_context(
+    hits:           list[VectorHit],
+    graph_contexts: list[GraphContext],
+    max_total:      int = _DEFAULT_TOTAL,
+    max_chunk:      int = _DEFAULT_CHUNK,
+) -> str:
+    """Return a compact, LLM-ready context string."""
+    parts: list[str] = []
+    vector_budget    = int(max_total * _VECTOR_SHARE)
+    used             = 0
+
+    # ── Section 1: Vector search results ─────────────────────────────────────
+    parts.append("[VECTOR SEARCH RESULTS]\n\n")
+
+    for i, hit in enumerate(hits, 1):
+        lang  = hit.language or "text"
+        label = f"`{hit.name}` — " if hit.name else ""
+        header = (
+            f"Result {i} (score: {hit.score:.3f})\n"
+            f"File: {hit.file_path}   Repo: {hit.repo}   Lines: {hit.start_line}–{hit.end_line}\n"
+            f"Type: {hit.chunk_type}   Language: {lang}\n\n"
+        )
+
+        body = hit.content
+        if len(body) > max_chunk:
+            body = body[:max_chunk] + "\n… (truncated)"
+        block = f"{header}```{lang}\n{body}\n```\n\n---\n\n"
+
+        if used + len(block) > vector_budget and i > 1:
+            parts.append(
+                f"*({len(hits) - i + 1} more result(s) omitted to stay within context budget)*\n\n"
+            )
+            break
+
+        parts.append(block)
+        used += len(block)
+
+    # ── Section 2: Structural graph context ───────────────────────────────────
+    if graph_contexts:
+        parts.append("[STRUCTURAL GRAPH CONTEXT]\n\n")
+
+        for ctx in graph_contexts:
+            parts.append(f"File: {ctx.file_path}  (repo: {ctx.repo}, lang: {ctx.language})\n")
+
+            # ADF / JSON metadata
+            md = ctx.metadata or {}
+            if md.get("pipeline_name"):
+                parts.append(f"  Pipeline name : {md['pipeline_name']}\n")
+            if md.get("activity_count"):
+                acts = md.get("activity_names", [])
+                act_str = ", ".join(acts[:10]) + ("…" if len(acts) > 10 else "")
+                parts.append(f"  Activities    : {md['activity_count']}  ({act_str})\n")
+            if md.get("folder"):
+                parts.append(f"  Folder        : {md['folder']}\n")
+            if md.get("pipeline_type"):
+                parts.append(f"  ADF type      : {md['pipeline_type']}\n")
+            if md.get("top_keys"):
+                parts.append(f"  Top-level keys: {', '.join(md['top_keys'][:8])}\n")
+
+            # Symbols
+            funcs    = [s.name for s in ctx.contains if s.node_type == "function"][:10]
+            classes  = [s.name for s in ctx.contains if s.node_type == "class"][:6]
+            sections = [s.name for s in ctx.contains if s.node_type == "section"][:6]
+
+            if funcs:
+                parts.append(f"  Functions     : {', '.join(funcs)}\n")
+            if classes:
+                parts.append(f"  Classes       : {', '.join(classes)}\n")
+            if sections:
+                parts.append(f"  Sections      : {', '.join(sections)}\n")
+
+            # Edges
+            if ctx.imports:
+                parts.append(f"  Imports       : {', '.join(ctx.imports[:12])}\n")
+            if ctx.imported_by:
+                parts.append(f"  Used by       : {', '.join(ctx.imported_by[:5])}\n")
+            if ctx.calls_out:
+                parts.append(f"  Call edges    : {'; '.join(ctx.calls_out[:8])}\n")
+
+            parts.append("\n")
+
+    return "".join(parts)
+
+
+def build_llm_messages(context: str, question: str) -> list[dict]:
+    """Return an Ollama-compatible messages list for the chat API."""
+    system = (
+        "You are an expert code analyst and software architect. "
+        "Answer the user's question using ONLY the provided context. "
+        "Be precise and cite specific files, functions, or line numbers when relevant. "
+        "If the answer is not in the context, clearly state what is missing."
+    )
+    user = f"Context:\n\n{context}\n\nQuestion: {question}"
+    return [
+        {"role": "system",    "content": system},
+        {"role": "user",      "content": user},
+    ]

@@ -1,0 +1,515 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {
+    "name": "graphify"
+  },
+  "nodes": [
+    {
+      "type": "repo",
+      "name": "pipeline",
+      "repo": "pipeline",
+      "file_path": "",
+      "language": "",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {},
+      "id": "repo:pipeline"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dly_r4_wkf_dlh4.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dly_r4_wkf_dlh4.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dly_r4_wkf_dlh4",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dly_r4_wkf_dlh4.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dly_r4_wkf_dlh5.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dly_r4_wkf_dlh5.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dly_r4_wkf_dlh5",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dly_r4_wkf_dlh5.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dly_r4_wkf_ss01.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dly_r4_wkf_ss01.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dly_r4_wkf_ss01",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss01.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dly_r4_wkf_ss02.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dly_r4_wkf_ss02.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dly_r4_wkf_ss02",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss02.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dly_r4_wkf_ss03.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dly_r4_wkf_ss03.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dly_r4_wkf_ss03",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss03.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_ip_wkf_ics.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_ip_wkf_ics.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_ip_wkf_ics",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Oracle"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_ip_wkf_ics.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_r4_cashier_dlh4.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_r4_cashier_dlh4.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_r4_cashier_dlh4",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_r4_cashier_dlh4.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_r4_cashier_dlh5.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_r4_cashier_dlh5.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_r4_cashier_dlh5",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_r4_cashier_dlh5.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_r4_cashier_ss01.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_r4_cashier_ss01.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_r4_cashier_ss01",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss01.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_r4_cashier_ss02.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_r4_cashier_ss02.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_r4_cashier_ss02",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss02.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_dy_r4_cashier_ss03.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_dy_r4_cashier_ss03.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_dy_r4_cashier_ss03",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss03.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_dlh4.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_dlh4.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_dlh4",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_dlh4.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_dlh5.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_dlh5.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_dlh5",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_dlh5.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_ss01.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_ss01.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_ss01",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_ss01.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_ss02.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_ss02.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_ss02",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_ss02.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_ss03.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_ss03.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_ss03",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_ss03.json"
+    },
+    {
+      "type": "file",
+      "name": "pl_pbnafc_edr_venr.json",
+      "repo": "pipeline",
+      "file_path": "pl_pbnafc_edr_venr.json",
+      "language": "json",
+      "start_line": 0,
+      "end_line": 0,
+      "metadata": {
+        "pipeline_name": "pl_pbnafc_edr_venr",
+        "activity_count": 5,
+        "activity_names": [
+          "Wait_For_API_Propagation",
+          "Check_Recent_Pipeline_Runs",
+          "Filter_Exclude_Current_Run",
+          "If_No_Recent_Runs",
+          "Set_Run_Message_Check_Failed"
+        ],
+        "pipeline_type": "Microsoft.DataFactory/factories/pipelines",
+        "folder": "PBNA_FC/ACQ/Sybase"
+      },
+      "id": "file:pipeline:pl_pbnafc_edr_venr.json"
+    }
+  ],
+  "links": [
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dly_r4_wkf_dlh4.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dly_r4_wkf_dlh5.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss01.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss02.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dly_r4_wkf_ss03.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_ip_wkf_ics.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_r4_cashier_dlh4.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_r4_cashier_dlh5.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss01.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss02.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_dy_r4_cashier_ss03.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_dlh4.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_dlh5.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_ss01.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_ss02.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_ss03.json",
+      "key": 0
+    },
+    {
+      "type": "contains",
+      "source": "repo:pipeline",
+      "target": "file:pipeline:pl_pbnafc_edr_venr.json",
+      "key": 0
+    }
+  ]
+}

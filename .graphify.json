@@ -1,0 +1,10 @@
+{
+  "repos": [
+    {
+      "name": "pipeline",
+      "path": "C:\\Users\\ayiti\\Downloads\\pipeline"
+    }
+  ],
+  "default_llm": null,
+  "ollama_host": "http://localhost:11434"
+}
