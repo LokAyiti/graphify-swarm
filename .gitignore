@@ -1,0 +1,5 @@
+
+# graphify — binary Qdrant storage (non-portable; rebuilt via `graphify rebuild`)
+graphify-out/qdrant/
+graphify_local.egg-info/
+*.egg-info/
