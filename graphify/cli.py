@@ -1021,7 +1021,7 @@ def sync(
     console.print(f"[bold green]✓ Pushed to {remote}[/]")
     console.print(
         f"\n[dim]Team members can now:[/]\n"
-        f"  git clone https://github.com/LokAyiti/CICD_Automation\n"
+        f"  git clone https://github.com/LokAyiti/graphify-swarm\n"
         f"  pip install -e .\n"
         f"  graphify rebuild            # rebuild Qdrant from chunks.jsonl\n"
         f"  graphify ask \"your question\"\n"

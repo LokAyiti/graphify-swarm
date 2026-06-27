@@ -17,7 +17,7 @@ graphify sync                               # push knowledge to GitHub for the t
 Graphify turns local git repositories into a living knowledge base your whole team can query. You index repos once, the outputs are committed to this repository, and anyone who clones it can start asking questions immediately — without touching the original source files.
 
 ```
-Your repos (local)          CICD_Automation (GitHub)         Any team member
+Your repos (local)          graphify-swarm (GitHub)          Any team member
 ──────────────────          ────────────────────────         ─────────────────
 pipeline/                   graphify-out/                    git clone …
 app-code/      ──index──▶   ├── chunks.jsonl    ──push──▶   pip install -e .
@@ -65,8 +65,8 @@ save chunks.jsonl        graph.html (vis.js)      streaming answer         diff 
 
 ```bash
 # Clone this repo
-git clone https://github.com/LokAyiti/CICD_Automation
-cd CICD_Automation
+git clone https://github.com/LokAyiti/graphify-swarm
+cd graphify-swarm
 
 # Install graphify and all dependencies
 pip install -e .
@@ -245,8 +245,8 @@ graphify sync
 ### Team Member (clone and use)
 
 ```bash
-git clone https://github.com/LokAyiti/CICD_Automation
-cd CICD_Automation
+git clone https://github.com/LokAyiti/graphify-swarm
+cd graphify-swarm
 pip install -e .
 graphify rebuild
 
@@ -259,8 +259,8 @@ graphify visualize
 ### Team Member (has local copy of source repos)
 
 ```bash
-git clone https://github.com/LokAyiti/CICD_Automation
-cd CICD_Automation
+git clone https://github.com/LokAyiti/graphify-swarm
+cd graphify-swarm
 pip install -e .
 graphify add-repo C:\my-local\pipeline --name pipeline    # registers + re-indexes (fast — cache hit)
 graphify ask "question"
@@ -316,7 +316,7 @@ Graphify extracts rich structure from:
 ## Project Structure
 
 ```
-CICD_Automation/
+graphify-swarm/
 ├── graphify/
 │   ├── cli.py              ← 13-command CLI entry point
 │   ├── config.py           ← .graphify.json management

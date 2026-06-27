@@ -69,7 +69,7 @@ graphify/
 ## Team Clone Workflow
 
 ```bash
-git clone https://github.com/LokAyiti/CICD_Automation
+git clone https://github.com/LokAyiti/graphify-swarm
 pip install -e .
 graphify rebuild     # rebuilds Qdrant from committed chunks.jsonl + embeddings
 graphify ask "question"
