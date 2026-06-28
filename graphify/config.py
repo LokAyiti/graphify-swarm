@@ -28,6 +28,7 @@ class GraphifyConfig:
     repos:       List[RepoEntry] = field(default_factory=list)
     default_llm: Optional[str]   = None
     ollama_host: str              = "http://localhost:11434"
+    qdrant_url:  Optional[str]   = None  # e.g. "http://localhost:6333" for Docker
 
     @property
     def repo_paths(self) -> Dict[str, Path]:
@@ -54,6 +55,7 @@ def load_config(path: Path = CONFIG_FILE) -> GraphifyConfig:
             repos       = repos,
             default_llm = raw.get("default_llm"),
             ollama_host = raw.get("ollama_host", "http://localhost:11434"),
+            qdrant_url  = raw.get("qdrant_url"),
         )
     except Exception:
         return GraphifyConfig()
@@ -64,6 +66,7 @@ def save_config(cfg: GraphifyConfig, path: Path = CONFIG_FILE) -> None:
         "repos":       [asdict(r) for r in cfg.repos],
         "default_llm": cfg.default_llm,
         "ollama_host": cfg.ollama_host,
+        "qdrant_url":  cfg.qdrant_url,
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 

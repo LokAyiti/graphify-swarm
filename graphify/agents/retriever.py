@@ -22,8 +22,10 @@ class RetrieverAgent(BaseAgent):
         qdrant_dir:      Path,
         embedder_cache:  Path,
         graph_json_path: Optional[Path] = None,
+        qdrant_url:      Optional[str]  = None,
+        qdrant_api_key:  Optional[str]  = None,
     ) -> None:
-        self._router = Router(qdrant_dir, embedder_cache, graph_json_path)
+        self._router = Router(qdrant_dir, embedder_cache, graph_json_path, qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key)
 
     def run(self, ctx: RunContext) -> RunContext:
         hits, graph_contexts = self._router.route(
