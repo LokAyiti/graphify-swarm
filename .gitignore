@@ -1,7 +1,7 @@
 
 # graphify — all generated outputs (rebuilt locally via `graphify rebuild`)
 graphify-out/
-graphify_local.egg-info/
+
 *.egg-info/
 
 # secrets — never commit
