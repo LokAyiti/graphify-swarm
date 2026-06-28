@@ -1,5 +1,8 @@
 
-# graphify — binary Qdrant storage (non-portable; rebuilt via `graphify rebuild`)
-graphify-out/qdrant/
+# graphify — all generated outputs (rebuilt locally via `graphify rebuild`)
+graphify-out/
 graphify_local.egg-info/
 *.egg-info/
+
+# secrets — never commit
+.env
