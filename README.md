@@ -1,7 +1,7 @@
 # Graphify — Local Code Knowledge Graph
 
 > Index any number of git repos into a searchable, queryable knowledge graph.  
-> Works **100 % offline**. No API keys. No cloud. No Docker.
+> Runs **locally** via Docker (Qdrant) — or connect to Qdrant Cloud for team sharing.
 
 ```
 graphify add-repo  ./my-repo          # register + index + extract graph
@@ -45,7 +45,7 @@ save chunks.jsonl        graph.html (vis.js)      streaming answer         diff 
 ```
 
 **Embedding model:** `all-MiniLM-L6-v2` — 22 M params, 384-dim, ~90 MB download once, then cached.  
-**Vector store:** Qdrant local disk mode — no server, no Docker.  
+**Vector store:** Qdrant — runs in Docker (`docker compose up -d`) or embedded disk mode (fallback).  
 **Graph library:** NetworkX MultiDiGraph.  
 **LLM (optional):** Any Ollama model via `http://localhost:11434`.
 
@@ -56,6 +56,7 @@ save chunks.jsonl        graph.html (vis.js)      streaming answer         diff 
 | Requirement | Version | Notes |
 |---|---|---|
 | Python | 3.10 + | 3.11 recommended |
+| Docker Desktop | any | for Qdrant vector store (`docker compose up -d`) |
 | git | any | for `graphify sync` |
 | Ollama | any | **optional** — only for `--llm` flag |
 
@@ -71,8 +72,11 @@ cd graphify-swarm
 # Install graphify and all dependencies
 pip install -e .
 
+# Start Qdrant in Docker Desktop (must be running first)
+docker compose up -d
+
 # If this is a fresh clone (no original source files needed):
-graphify rebuild     # rebuilds Qdrant from chunks.jsonl + cached embeddings
+graphify rebuild     # rebuilds Qdrant from chunks.jsonl + embedding cache
 
 # Verify
 graphify status
@@ -83,6 +87,7 @@ graphify ask "what pipelines exist here"
 
 ```bash
 pip install -e .
+docker compose up -d                   # start Qdrant
 graphify init                          # creates .graphify.json, updates .gitignore
 graphify add-repo C:\path\to\repo1    # registers, indexes, and graphs in one step
 graphify add-repo C:\path\to\repo2
@@ -188,7 +193,7 @@ All outputs live in `graphify-out/` and are committed to this repo (except Qdran
 | File | Committed | Description |
 |---|---|---|
 | `chunks.jsonl` | ✅ | All chunk content — used by `graphify rebuild` |
-| `cache/embeddings/` | ✅ | SHA256-keyed numpy vectors — makes rebuild instant |
+| `cache/embeddings/` | ❌ | SHA256-keyed numpy vectors — gitignored (large binary files), auto-regenerated |
 | `summaries.json` | ✅ | Repo metadata (file counts, chunk counts) |
 | `graph.json` | ✅ | NetworkX node-link graph |
 | `graph.html` | ✅ | Interactive vis.js visualization |
@@ -212,9 +217,14 @@ All outputs live in `graphify-out/` and are committed to this repo (except Qdran
     }
   ],
   "default_llm": "llama3",
-  "ollama_host": "http://localhost:11434"
+  "ollama_host": "http://localhost:11434",
+  "qdrant_url": null
 }
 ```
+
+> **Qdrant URL:** Controlled via `.env` (takes priority over config).  
+> Set `QDRANT_URL=http://localhost:6333` for Docker, or the Qdrant Cloud URL for cloud mode.  
+> Leave unset (or `null`) to fall back to embedded local disk mode.
 
 > **Portability note:** `path` is machine-specific (absolute Windows path). Each team member
 > runs `graphify add-repo <their-local-path> --name <same-name>` once to set their path.
@@ -228,6 +238,7 @@ All outputs live in `graphify-out/` and are committed to this repo (except Qdran
 
 ```bash
 # One-time setup
+docker compose up -d
 graphify init
 graphify add-repo C:\path\to\pipeline
 graphify add-repo C:\path\to\another-repo
@@ -248,6 +259,7 @@ graphify sync
 git clone https://github.com/LokAyiti/graphify-swarm
 cd graphify-swarm
 pip install -e .
+docker compose up -d
 graphify rebuild
 
 # Now query anything
@@ -262,6 +274,7 @@ graphify visualize
 git clone https://github.com/LokAyiti/graphify-swarm
 cd graphify-swarm
 pip install -e .
+docker compose up -d
 graphify add-repo C:\my-local\pipeline --name pipeline    # registers + re-indexes (fast — cache hit)
 graphify ask "question"
 ```
@@ -347,7 +360,8 @@ graphify-swarm/
 │   ├── graph.html          ← interactive visualization (committed)
 │   ├── GRAPH_REPORT.md     ← text report (committed)
 │   ├── summaries.json      ← repo metadata (committed)
-│   └── qdrant/             ← Qdrant binary (gitignored — rebuilt locally)
+│   ├── qdrant/             ← Qdrant binary (gitignored — managed by Docker)
+│   └── cache/embeddings/   ← numpy vectors (gitignored — auto-regenerated)
 ├── .graphify.json          ← repo registry + default settings
 ├── .gitignore
 ├── pyproject.toml
@@ -359,18 +373,22 @@ graphify-swarm/
 ## Dependencies
 
 ```
-qdrant-client>=1.9.0        vector store (local disk mode)
+qdrant-client>=1.9.0        vector store (Docker or embedded)
 sentence-transformers>=3.0.0  all-MiniLM-L6-v2 embeddings
 networkx>=3.0               graph data structure
 typer[all]>=0.12.0          CLI framework
 rich>=13.0.0                terminal display
 pathspec>=0.12.0            .gitignore parsing
 numpy>=1.24.0               embedding cache (numpy .npy files)
+python-dotenv>=1.0.0        .env file loading
 ```
 
 ---
 
 ## Troubleshooting
+
+**`graphify rebuild` — "Server disconnected" or connection refused**  
+The Qdrant Docker container is not running. Start it with: `docker compose up -d`
 
 **`graphify rebuild` — "chunks.jsonl not found"**  
 Someone with the source repos needs to run `graphify index <path>` and `graphify sync` first.
@@ -384,8 +402,12 @@ Run `ollama pull llama3` (or whichever model you want to use).
 **Qdrant is corrupted / behaves unexpectedly**  
 ```bash
 graphify clear --yes
+docker compose restart   # restart the container
 graphify rebuild
 ```
+
+**Switch between Local Docker and Qdrant Cloud**  
+Edit `.env` — uncomment Option A (Docker) or Option B (Cloud). Re-run `graphify index --all` after switching.
 
 **File content is garbled (UTF-16 / BOM)**  
 The chunker and JSON extractor both use `utf-8-sig` encoding which strips UTF-8 BOMs automatically. UTF-16 files (exported from some tools) should be converted first: `Get-Content file.json | Set-Content -Encoding UTF8 file.json`.

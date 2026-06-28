@@ -2,6 +2,7 @@
 
 A local code knowledge graph tool that indexes git repositories and enables
 semantic search, graph traversal, and multi-agent analysis across all of them.
+Uses **Qdrant in Docker** as the vector store (or embedded disk mode as fallback).
 
 ## When to Use This Skill
 
@@ -16,6 +17,11 @@ Use this skill when the user asks to:
 ## Command Quick Reference
 
 ```bash
+# ── Docker (start Qdrant first) ────────────────────────────────────────────
+docker compose up -d                       # start Qdrant container
+docker compose stop                        # stop container
+docker logs graphify-qdrant               # view Qdrant logs
+
 # ── Setup ──────────────────────────────────────────────────────────────────
 graphify init                              # create .graphify.json + .gitignore
 graphify add-repo <path>                   # register + index + graph a repo
@@ -71,7 +77,8 @@ graphify/
 ```bash
 git clone https://github.com/LokAyiti/graphify-swarm
 pip install -e .
-graphify rebuild     # rebuilds Qdrant from committed chunks.jsonl + embeddings
+docker compose up -d     # start Qdrant in Docker Desktop
+graphify rebuild         # rebuilds Qdrant from committed chunks.jsonl
 graphify ask "question"
 ```
 
@@ -81,23 +88,39 @@ graphify ask "question"
 {
   "repos": [{"name": "pipeline", "path": "C:\\path\\to\\pipeline"}],
   "default_llm": "llama3",
-  "ollama_host": "http://localhost:11434"
+  "ollama_host": "http://localhost:11434",
+  "qdrant_url": null
 }
 ```
+
+## Qdrant Connection (.env)
+
+```ini
+# Option A — Local Docker (default)
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+
+# Option B — Qdrant Cloud
+# QDRANT_URL=https://<cluster>.aws.cloud.qdrant.io:6333
+# QDRANT_API_KEY=your-api-key
+
+# Leave both commented out for embedded disk mode (no Docker needed)
+```
+
+> QDRANT_URL from `.env` takes priority over `qdrant_url` in `.graphify.json`.
 
 ## What Gets Committed to GitHub
 
 | File | Why |
 |---|---|
 | `graphify-out/chunks.jsonl` | Chunk content for offline rebuild |
-| `graphify-out/cache/embeddings/` | Numpy vector cache (portable) |
+| `graphify-out/summaries.json` | Repo metadata |
 | `graphify-out/graph.json` | Knowledge graph |
 | `graphify-out/graph.html` | Interactive visualization |
-| `graphify-out/summaries.json` | Repo metadata |
 | `graphify-out/GRAPH_REPORT.md` | Analysis report |
 | `.graphify.json` | Repo registry |
 
-`graphify-out/qdrant/` is **gitignored** (binary, non-portable — rebuilt locally).
+`graphify-out/qdrant/` and `graphify-out/cache/embeddings/` are **gitignored** (large binary files, auto-regenerated locally).
 
 ## Supported Repo Types
 

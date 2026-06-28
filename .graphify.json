@@ -15,6 +15,10 @@
     {
       "name": "qdrant",
       "path": "C:\\Users\\ayiti\\Downloads\\qdrant"
+    },
+    {
+      "name": "fugu",
+      "path": "C:\\Users\\ayiti\\Downloads\\fugu"
     }
   ],
   "default_llm": null,

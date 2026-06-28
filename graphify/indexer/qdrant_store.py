@@ -49,7 +49,7 @@ class QdrantStore:
 
     def __init__(self, data_dir: Path, url: Optional[str] = None, api_key: Optional[str] = None) -> None:
         if url:
-            self._client = QdrantClient(url=url, api_key=api_key or None, timeout=30)
+            self._client = QdrantClient(url=url, api_key=api_key or None, timeout=120)
         else:
             data_dir.mkdir(parents=True, exist_ok=True)
             self._client = QdrantClient(path=str(data_dir))
