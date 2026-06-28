@@ -17,15 +17,20 @@ Commands
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
+
+# Load .env from the cwd where `graphify` is invoked (repo root)
+load_dotenv(dotenv_path=Path(".env"), override=False)
 
 app = typer.Typer(
     name="graphify",
@@ -62,9 +67,20 @@ _GIT_TRACKED = [
 ]
 
 
+def _qdrant_url(cfg=None) -> Optional[str]:
+    """Env var QDRANT_URL takes priority over .graphify.json."""
+    return os.environ.get("QDRANT_URL") or (cfg.qdrant_url if cfg else None)
+
+
+def _qdrant_api_key() -> Optional[str]:
+    return os.environ.get("QDRANT_API_KEY") or None
+
+
 def _store():
+    from graphify.config import load_config
     from graphify.indexer.qdrant_store import QdrantStore
-    return QdrantStore(QDRANT_DIR)
+    cfg = load_config(CONFIG_FILE)
+    return QdrantStore(QDRANT_DIR, url=_qdrant_url(cfg), api_key=_qdrant_api_key())
 
 
 def _embedder():
@@ -104,8 +120,9 @@ def index(
             raise typer.Exit(1)
     else:
         repo_strs = list(repos)
+        cfg = load_config(CONFIG_FILE)
 
-    store    = QdrantStore(QDRANT_DIR)
+    store    = QdrantStore(QDRANT_DIR, url=_qdrant_url(cfg), api_key=_qdrant_api_key())
     embedder = Embedder(CACHE_DIR)
 
     summaries: dict = {}
@@ -539,6 +556,7 @@ def ask(
     """Phase 3 — vector search + graph context + optional Ollama answer."""
     import sys
 
+    from graphify.config import load_config
     from graphify.query.merger import build_llm_messages, format_context
     from graphify.query.router import Router
 
@@ -547,7 +565,8 @@ def ask(
     if not no_graph and GRAPH_JSON_FILE.exists():
         graph_path = GRAPH_JSON_FILE
 
-    router = Router(QDRANT_DIR, CACHE_DIR, graph_json_path=graph_path)
+    cfg    = load_config(CONFIG_FILE)
+    router = Router(QDRANT_DIR, CACHE_DIR, graph_json_path=graph_path, qdrant_url=_qdrant_url(cfg), qdrant_api_key=_qdrant_api_key())
 
     if router.index_count() == 0:
         console.print("[red]Nothing indexed yet.  Run:  graphify index <path>[/]")
@@ -677,6 +696,9 @@ def swarm(
 ):
     """Phase 4 — multi-agent swarm: Retrieve → Reason → Edit → Validate."""
     from graphify.agents.swarm import build_swarm
+    from graphify.config import load_config
+
+    cfg = load_config(CONFIG_FILE)
 
     # ── Load repo paths from summaries.json ─────────────────────────────
     repo_paths: dict = {}
@@ -730,6 +752,8 @@ def swarm(
         repo_paths      = repo_paths,
         llm_model       = llm,
         ollama_host     = ollama_host,
+        qdrant_url      = _qdrant_url(cfg),
+        qdrant_api_key  = _qdrant_api_key(),
         console         = console,
     )
 
@@ -847,12 +871,11 @@ def add_repo(
 
     if not no_index:
         console.print()
-        # Reuse the index command logic
-        index.callback(repos=[entry.path], reindex=False, all_=False)  # type: ignore[attr-defined]
+        index(repos=[entry.path], reindex=False, all_=False)
 
     if not no_graph:
         console.print()
-        graph.callback(repos=[entry.path], all_=False)  # type: ignore[attr-defined]
+        graph(repos=[entry.path], all_=False)
 
 
 # ---------------------------------------------------------------------------
@@ -862,9 +885,12 @@ def add_repo(
 @app.command()
 def rebuild():
     """Rebuild Qdrant index from chunks.jsonl + embedding cache (works after git clone)."""
+    from graphify.config import load_config
     from graphify.indexer.chunker import Chunk
     from graphify.indexer.embedder import Embedder
     from graphify.indexer.qdrant_store import QdrantStore
+
+    cfg = load_config(CONFIG_FILE)
 
     if not CHUNKS_FILE.exists():
         console.print(
@@ -890,12 +916,12 @@ def rebuild():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Wipe and recreate Qdrant
+    # Wipe and recreate Qdrant (embedded only — Docker/Cloud data persists)
     import shutil
-    if QDRANT_DIR.exists():
+    if not _qdrant_url(cfg) and QDRANT_DIR.exists():
         shutil.rmtree(QDRANT_DIR)
 
-    store    = QdrantStore(QDRANT_DIR)
+    store    = QdrantStore(QDRANT_DIR, url=_qdrant_url(cfg), api_key=_qdrant_api_key())
     embedder = Embedder(CACHE_DIR)
 
     with Progress(

@@ -1,8 +1,10 @@
 """
-qdrant_store.py — local Qdrant vector store (no Docker required).
+qdrant_store.py — Qdrant vector store.
 
-Uses QdrantClient(path=...) which runs an embedded storage engine
-directly on disk.  All data survives process restarts.
+Supports two modes:
+  • Embedded  (default): QdrantClient(path=...) — local disk, no server needed.
+  • Docker / Remote    : QdrantClient(url=...)  — connect to a running Qdrant
+                         container (e.g. docker-compose up).
 
 Collection schema
 -----------------
@@ -13,7 +15,7 @@ Collection schema
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
@@ -34,11 +36,23 @@ _VECTOR_DIM = 384  # matches all-MiniLM-L6-v2
 
 
 class QdrantStore:
-    """Thin wrapper around a local Qdrant collection."""
+    """Thin wrapper around a Qdrant collection.
 
-    def __init__(self, data_dir: Path) -> None:
-        data_dir.mkdir(parents=True, exist_ok=True)
-        self._client = QdrantClient(path=str(data_dir))
+    Parameters
+    ----------
+    data_dir : Path
+        Used only when *url* is ``None`` (embedded mode).
+    url : str | None
+        HTTP URL of a running Qdrant server, e.g. ``"http://localhost:6333"``.
+        When provided, the embedded path engine is **not** used.
+    """
+
+    def __init__(self, data_dir: Path, url: Optional[str] = None, api_key: Optional[str] = None) -> None:
+        if url:
+            self._client = QdrantClient(url=url, api_key=api_key or None, timeout=30)
+        else:
+            data_dir.mkdir(parents=True, exist_ok=True)
+            self._client = QdrantClient(path=str(data_dir))
         self._ensure_collection()
 
     # ------------------------------------------------------------------

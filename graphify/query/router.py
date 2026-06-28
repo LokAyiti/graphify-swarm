@@ -68,8 +68,12 @@ class Router:
         qdrant_dir:       Path,
         embedder_cache:   Path,
         graph_json_path:  Optional[Path] = None,
+        qdrant_url:       Optional[str]  = None,
+        qdrant_api_key:   Optional[str]  = None,
     ) -> None:
         self._qdrant_dir     = qdrant_dir
+        self._qdrant_url     = qdrant_url
+        self._qdrant_api_key = qdrant_api_key
         self._embedder_cache = embedder_cache
         self._graph_path     = graph_json_path
 
@@ -83,7 +87,7 @@ class Router:
     def _get_store(self):
         if self._store is None:
             from graphify.indexer.qdrant_store import QdrantStore
-            self._store = QdrantStore(self._qdrant_dir)
+            self._store = QdrantStore(self._qdrant_dir, url=self._qdrant_url, api_key=self._qdrant_api_key)
         return self._store
 
     def _get_embedder(self):
