@@ -360,7 +360,11 @@ class GoogleLLM(BaseLLM):
 # ---------------------------------------------------------------------------
 
 class DatabricksLLM(BaseLLM):
-    """Databricks Model Serving endpoint."""
+    """Databricks Model Serving endpoint.
+
+    Tries SSE streaming first (`/invocations` with ``"stream": True``).
+    Falls back to a single-shot call if the endpoint doesn't support streaming.
+    """
 
     def __init__(self, model: str, api_key: str, endpoint: str) -> None:
         self.model    = model
@@ -376,12 +380,12 @@ class DatabricksLLM(BaseLLM):
         messages: list[dict],
         timeout:  int = 180,
     ) -> Generator[str, None, None]:
-        # Issue #9: Databricks invocations endpoint does not support SSE streaming.
-        # We read the full response in one shot but yield token-by-token so the
-        # caller gets the same interface as streaming backends — visible latency
-        # is the same, but the UX is a single flush rather than a trickle.
+        # Phase 5C: try real SSE streaming — Databricks Claude endpoints support it.
+        # If the server returns a non-SSE response (no "data:" lines), we fall back
+        # to reading the full payload and yielding word-by-word.
         body = json.dumps({
             "messages":    messages,
+            "stream":      True,
             "temperature": 0.2,
             "max_tokens":  4096,
         }).encode()
@@ -392,20 +396,51 @@ class DatabricksLLM(BaseLLM):
             headers={
                 "Content-Type":  "application/json",
                 "Authorization": f"Bearer {self.api_key}",
+                "Accept":        "text/event-stream",
             },
             method="POST",
         )
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data   = json.loads(resp.read())
-                answer = (
-                    data.get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "")
-                )
-                # Yield word-by-word to give a streaming feel
-                for word in answer.split(" "):
-                    yield word + " "
+                saw_sse = False
+                buffer  = b""
+                for raw_line in resp:
+                    line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
+
+                    if line.startswith("data: "):
+                        saw_sse = True
+                        payload = line[6:]
+                        if payload in ("[DONE]", ""):
+                            continue
+                        try:
+                            chunk = json.loads(payload)
+                        except json.JSONDecodeError:
+                            continue
+                        delta = (
+                            chunk.get("choices", [{}])[0]
+                            .get("delta", {})
+                            .get("content", "")
+                        )
+                        if delta:
+                            yield delta
+                    else:
+                        # Accumulate non-SSE bytes for fallback path
+                        buffer += raw_line
+
+                # Fallback: non-streaming response (yield word-by-word)
+                if not saw_sse and buffer:
+                    try:
+                        data   = json.loads(buffer)
+                        answer = (
+                            data.get("choices", [{}])[0]
+                            .get("message", {})
+                            .get("content", "")
+                        )
+                        for word in answer.split(" "):
+                            yield word + " "
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
         except urllib.error.URLError as exc:
             raise ConnectionError(
                 f"Databricks API error at {self.endpoint}: {exc}"

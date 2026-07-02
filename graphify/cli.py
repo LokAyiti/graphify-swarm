@@ -1117,6 +1117,267 @@ def sync(
 
 
 # ---------------------------------------------------------------------------
+# feedback  — Phase 5B
+# ---------------------------------------------------------------------------
+
+@app.command()
+def feedback(
+    rating:     str           = typer.Argument(..., help="good | bad | corrected"),
+    correction: Optional[str] = typer.Option(None, "--correction", "-c",
+                                             help="Your corrected answer (use with 'corrected')"),
+    last:       bool          = typer.Option(False, "--last", help="Apply rating to the last logged query"),
+):
+    """Record feedback on the last answer (good / bad / corrected)."""
+    from graphify.memory.episodic    import _LOG_FILE
+    from graphify.memory.feedback_loop import submit_feedback
+
+    if rating not in ("good", "bad", "corrected"):
+        console.print("[red]Rating must be: good | bad | corrected[/]")
+        raise typer.Exit(1)
+
+    if rating == "corrected" and not correction:
+        console.print("[red]--correction is required when rating is 'corrected'[/]")
+        raise typer.Exit(1)
+
+    # Read the last query from episodic log
+    if not _LOG_FILE.exists():
+        console.print("[yellow]No queries logged yet — run graphify ask first.[/]")
+        raise typer.Exit()
+
+    lines = [l for l in _LOG_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    if not lines:
+        console.print("[yellow]Episodic log is empty.[/]")
+        raise typer.Exit()
+
+    import json as _json
+    last_entry = _json.loads(lines[-1])
+
+    result = submit_feedback(
+        query=last_entry.get("query", ""),
+        repos=last_entry.get("repos_searched", []),
+        provider=last_entry.get("provider", ""),
+        model=last_entry.get("model", ""),
+        rating=rating,
+        correction=correction,
+    )
+
+    icon = {"good": "✓", "bad": "✗", "corrected": "↺"}.get(rating, "?")
+    color = {"good": "green", "bad": "red", "corrected": "yellow"}.get(rating, "white")
+    console.print(f"[{color}]{icon}[/] Feedback recorded — [{color}]{rating}[/] (id={result['feedback_id']})")
+    if result["promotions"]:
+        for p in result["promotions"]:
+            console.print(f"  [bold cyan]🎓 Promoted:[/] {p}")
+
+    console.print(f"\n[dim]Query:[/] {last_entry.get('query', '')[:80]}")
+
+
+# ---------------------------------------------------------------------------
+# memory  — Phase 5B
+# ---------------------------------------------------------------------------
+
+@app.command(name="memory")
+def memory_cmd(
+    subcommand: str = typer.Argument("status", help="status | patterns | feedback"),
+    repo:       Optional[str] = typer.Option(None, "--repo", "-r"),
+):
+    """Inspect Graphify's learned memory (status / patterns / feedback)."""
+    from graphify.memory.memory_store import feedback_stats, get_patterns, memory_summary
+
+    sub = subcommand.lower()
+
+    if sub == "status":
+        info = memory_summary()
+        console.print("\n[bold cyan]Graphify Memory Status[/]\n")
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_row("Patterns learned",  f"[bold]{info['patterns']}[/]")
+        table.add_row("Rules promoted",    f"[bold]{info['rules']}[/]")
+        table.add_row("Feedback total",    f"[bold]{info['feedback_total']}[/]")
+        table.add_row(
+            "  good / bad",
+            f"[green]{info['feedback_good']}[/] / [red]{info['feedback_bad']}[/]"
+        )
+        table.add_row("DB path", f"[dim]{info['db_path']}[/]")
+        console.print(table)
+
+    elif sub == "patterns":
+        patterns = get_patterns(repo=repo, min_hits=1)
+        if not patterns:
+            console.print("[yellow]No patterns learned yet.  Run some queries to build up history.[/]")
+            return
+        table = Table(title=f"Learned Patterns{' — ' + repo if repo else ''}", show_lines=True)
+        table.add_column("Repo",       style="cyan",  width=14)
+        table.add_column("Keywords",   style="white", width=30)
+        table.add_column("Chunks",     style="yellow")
+        table.add_column("Hits",       style="green",  justify="right")
+        table.add_column("Avg score",  style="cyan",   justify="right")
+        for p in patterns[:30]:
+            table.add_row(
+                p["repo"],
+                ", ".join(p["keywords"][:5]),
+                ", ".join(p["chunk_types"][:4]),
+                str(p["hit_count"]),
+                f"{p['avg_score']:.3f}",
+            )
+        console.print(table)
+
+    elif sub == "feedback":
+        stats = feedback_stats()
+        console.print(
+            f"\n[bold]Feedback summary:[/]  "
+            f"[green]{stats['good']} good[/]  "
+            f"[red]{stats['bad']} bad[/]  "
+            f"[yellow]{stats['corrected']} corrected[/]  "
+            f"(total: {stats['total']})"
+        )
+    else:
+        console.print(f"[red]Unknown subcommand '{subcommand}'. Use: status | patterns | feedback[/]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# patterns  — Phase 5B (shortcut to `memory patterns`)
+# ---------------------------------------------------------------------------
+
+@app.command()
+def patterns(
+    repo:     Optional[str] = typer.Option(None, "--repo", "-r"),
+    min_hits: int            = typer.Option(2, "--min-hits", help="Min hit count to show"),
+):
+    """Show all discovered retrieval patterns (shortcut for `memory patterns`)."""
+    from graphify.memory.memory_store import get_patterns
+    found = get_patterns(repo=repo, min_hits=min_hits)
+    if not found:
+        console.print("[yellow]No patterns match the filter.[/]")
+        return
+    table = Table(title="Learned Patterns", show_lines=True)
+    table.add_column("Repo",      style="cyan",  width=16)
+    table.add_column("Keywords",  style="white", width=32)
+    table.add_column("Hits",      style="green", justify="right")
+    table.add_column("Avg score", style="cyan",  justify="right")
+    for p in found:
+        table.add_row(p["repo"], ", ".join(p["keywords"][:6]),
+                      str(p["hit_count"]), f"{p['avg_score']:.3f}")
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# evolve  — Phase 5B: trigger batch learning from episodic log
+# ---------------------------------------------------------------------------
+
+@app.command()
+def evolve(
+    min_score: float = typer.Option(0.80, "--min-score", help="Minimum avg score to record a pattern"),
+    top_k:     int   = typer.Option(100,  "--top-k",     help="Number of recent episodes to analyse"),
+):
+    """Analyse episodic log and extract reusable retrieval patterns."""
+    from graphify.memory.episodic    import _LOG_FILE
+    from graphify.memory.memory_store import record_pattern
+
+    if not _LOG_FILE.exists():
+        console.print("[yellow]No episodic log found.  Run some queries first.[/]")
+        raise typer.Exit()
+
+    lines = [l for l in _LOG_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    episodes = []
+    for line in lines[-top_k:]:
+        try:
+            episodes.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if not episodes:
+        console.print("[yellow]No usable episodes in log.[/]")
+        raise typer.Exit()
+
+    new_patterns = 0
+    for ep in episodes:
+        if ep.get("top_score", 0) < min_score:
+            continue
+        repos    = ep.get("repos_searched", [])
+        query    = ep.get("query", "")
+        keywords = [w for w in query.lower().split() if len(w) > 3][:8]
+        if not keywords or not repos:
+            continue
+        for repo in repos:
+            record_pattern(
+                repo=repo,
+                keywords=keywords,
+                chunk_types=[],
+                languages=[],
+                avg_score=ep.get("top_score", 0.0),
+            )
+            new_patterns += 1
+
+    console.print(
+        f"[bold green]✓[/] Evolved — processed [bold]{len(episodes)}[/] episodes, "
+        f"updated [bold]{new_patterns}[/] pattern(s).\n"
+        f"[dim]Run [white]graphify patterns[/] to see results.[/]"
+    )
+
+
+# ---------------------------------------------------------------------------
+# health  — Phase 5B: system health check
+# ---------------------------------------------------------------------------
+
+@app.command()
+def health():
+    """Check Qdrant, LLM provider, and memory are all reachable and configured."""
+    from graphify.config import load_config
+    from graphify.memory.memory_store import memory_summary
+    from graphify.query.llm import detect_provider
+
+    cfg      = load_config(CONFIG_FILE)
+    ok_icon  = "[bold green]✓[/]"
+    fail_icon = "[bold red]✗[/]"
+    warn_icon = "[bold yellow]⚠[/]"
+
+    console.print("\n[bold cyan]Graphify Health Check[/]\n")
+
+    # ── Qdrant ───────────────────────────────────────────────────────────
+    qdrant_url = _qdrant_url(cfg) or "embedded (local disk)"
+    try:
+        store = _store()
+        count = store.count()
+        console.print(f"  {ok_icon}  Qdrant     {qdrant_url}  →  {count} vectors")
+    except Exception as exc:
+        console.print(f"  {fail_icon}  Qdrant     {qdrant_url}  →  [red]{exc}[/]")
+
+    # ── LLM provider ─────────────────────────────────────────────────────
+    provider = detect_provider()
+    if provider:
+        console.print(f"  {ok_icon}  LLM        Provider detected: [cyan]{provider}[/]")
+    else:
+        console.print(f"  {warn_icon}  LLM        No API key found in .env — will use Ollama (local)")
+        import urllib.request as _ur
+        try:
+            _ur.urlopen("http://localhost:11434/api/tags", timeout=2)
+            console.print(f"  {ok_icon}  Ollama     running at http://localhost:11434")
+        except Exception:
+            console.print(f"  {fail_icon}  Ollama     not reachable — start with: [white]ollama serve[/]")
+
+    # ── Memory ───────────────────────────────────────────────────────────
+    try:
+        info = memory_summary()
+        console.print(
+            f"  {ok_icon}  Memory     {info['patterns']} patterns  "
+            f"{info['feedback_total']} feedback entries  "
+            f"({info['db_path']})"
+        )
+    except Exception as exc:
+        console.print(f"  {warn_icon}  Memory     not initialised yet ({exc})")
+
+    # ── Episodic log ─────────────────────────────────────────────────────
+    from graphify.memory.episodic import _LOG_FILE
+    if _LOG_FILE.exists():
+        lines = [l for l in _LOG_FILE.read_text().splitlines() if l.strip()]
+        console.print(f"  {ok_icon}  Episodic   {len(lines)} queries logged  ({_LOG_FILE})")
+    else:
+        console.print(f"  {warn_icon}  Episodic   no queries logged yet")
+
+    console.print()
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
