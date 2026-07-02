@@ -8,7 +8,7 @@ Protocol: JSON-RPC 2.0 over stdio (MCP standard).
 
 Tools exposed
 -------------
-  search_codebase(query, top_k=8, repo=None, threshold=0.0)
+  search_codebase(query, top_k=8, repo=None, threshold=0.85)
       Semantic search across all indexed repos.  Returns the top matching
       code/text chunks with scores, file paths, and content.
 
@@ -68,8 +68,8 @@ _TOOLS = [
                 },
                 "threshold": {
                     "type": "number",
-                    "description": "Minimum cosine similarity score 0.0-1.0 (default: 0.0 = off)",
-                    "default": 0.0,
+                    "description": "Minimum cosine similarity score 0.0-1.0 (default: 0.85 — only high-confidence results)",
+                    "default": 0.85,
                 },
             },
             "required": ["query"],
@@ -118,7 +118,7 @@ _TOOLS = [
 # ---------------------------------------------------------------------------
 
 def _search_codebase(query: str, top_k: int = 8, repo: str | None = None,
-                     threshold: float = 0.0) -> str:
+                     threshold: float = 0.85) -> str:
     """Run vector search and return formatted results."""
     from graphify.indexer.embedder import Embedder
     from graphify.indexer.qdrant_store import QdrantStore
@@ -318,7 +318,7 @@ def _handle(msg: dict) -> dict | None:
                     query     = arguments["query"],
                     top_k     = int(arguments.get("top_k", 8)),
                     repo      = arguments.get("repo"),
-                    threshold = float(arguments.get("threshold", 0.0)),
+                    threshold = float(arguments.get("threshold", 0.85)),
                 )
             elif name == "get_file_context":
                 text = _get_file_context(
