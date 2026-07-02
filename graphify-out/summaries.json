@@ -1,0 +1,20 @@
+{
+  "docker-agent": {
+    "repo_path": "C:\\Users\\ayiti\\Downloads\\docker-agent",
+    "total_files": 1705,
+    "total_chunks": 9818,
+    "files": {}
+  },
+  "pipeline": {
+    "repo_path": "C:\\Users\\ayiti\\Downloads\\pipeline",
+    "total_files": 17,
+    "total_chunks": 210,
+    "files": {}
+  },
+  "skills": {
+    "repo_path": "C:\\Users\\ayiti\\Downloads\\skills",
+    "total_files": 39,
+    "total_chunks": 227,
+    "files": {}
+  }
+}
