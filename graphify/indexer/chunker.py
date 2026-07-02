@@ -43,7 +43,7 @@ class Chunk:
 # ---------------------------------------------------------------------------
 
 def _chunk_python(path: Path, repo_root: Path, repo_name: str) -> List[Chunk]:
-    source = path.read_text(encoding="utf-8", errors="replace")
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
     rel = path.relative_to(repo_root).as_posix()
     lines = source.splitlines()
 
@@ -91,7 +91,7 @@ _HEADING_RE = re.compile(r"^#{1,6}\s+(.+)$")
 
 
 def _chunk_markdown(path: Path, repo_root: Path, repo_name: str) -> List[Chunk]:
-    source = path.read_text(encoding="utf-8", errors="replace")
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
     rel = path.relative_to(repo_root).as_posix()
     lines = source.splitlines()
 

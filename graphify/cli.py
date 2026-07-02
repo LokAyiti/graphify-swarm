@@ -824,13 +824,31 @@ def swarm(
                 raise typer.Exit()
 
         for edit in validated_edits:
-            root = repo_paths.get(edit.repo, Path("."))
-            full_path = root / edit.file_path
+            root      = repo_paths.get(edit.repo, Path(".")).resolve()
+            full_path = (root / edit.file_path).resolve()
+
+            # ── Security: path containment check (issue #2) ──────────────
+            if not full_path.is_relative_to(root):
+                console.print(
+                    f"  [red]✗[/] {edit.file_path} — "
+                    f"path escapes repo root; skipping (possible prompt injection)"
+                )
+                continue
+
             if not full_path.exists():
                 console.print(f"  [red]✗[/] {edit.file_path} — file not found")
                 continue
 
             current = full_path.read_text(encoding="utf-8-sig", errors="replace")
+
+            # ── Safety: reject empty BEFORE which would prepend blindly (issue #6)
+            if not edit.before:
+                console.print(
+                    f"  [yellow]⚠[/] {edit.file_path} — "
+                    f"BEFORE block is empty; skipping to prevent file corruption"
+                )
+                continue
+
             if edit.before not in current:
                 console.print(
                     f"  [yellow]⚠[/] {edit.file_path} — "
@@ -839,7 +857,6 @@ def swarm(
                 continue
 
             new_content = current.replace(edit.before, edit.after, 1)
-            # Write back preserving the original encoding (no BOM added)
             full_path.write_text(new_content, encoding="utf-8")
             console.print(f"  [green]✓[/] Applied to {full_path}")
 

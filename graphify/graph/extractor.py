@@ -102,7 +102,7 @@ class _CallVisitor(ast.NodeVisitor):
 
 
 def _extract_python(path: Path, repo_root: Path, repo_name: str) -> ExtractionResult:
-    source = path.read_text(encoding="utf-8", errors="replace")
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
     rel    = path.relative_to(repo_root).as_posix()
     fid    = _fid(repo_name, rel)
 
@@ -208,7 +208,7 @@ def _line_of(source: str, pos: int) -> int:
 
 
 def _extract_js(path: Path, repo_root: Path, repo_name: str) -> ExtractionResult:
-    source = path.read_text(encoding="utf-8", errors="replace")
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
     rel    = path.relative_to(repo_root).as_posix()
     lang   = "typescript" if path.suffix in {".ts", ".tsx"} else "javascript"
     fid    = _fid(repo_name, rel)
@@ -260,7 +260,7 @@ _MD_HEADING = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 
 
 def _extract_markdown(path: Path, repo_root: Path, repo_name: str) -> ExtractionResult:
-    source = path.read_text(encoding="utf-8", errors="replace")
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
     rel    = path.relative_to(repo_root).as_posix()
     fid    = _fid(repo_name, rel)
 

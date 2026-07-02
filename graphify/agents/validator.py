@@ -73,6 +73,11 @@ class ValidatorAgent(BaseAgent):
         issues: list[str] = []
         ext = Path(edit.file_path).suffix.lower()
 
+        # Issue #6: empty BEFORE would silently prepend content to the file
+        if not edit.before or not edit.before.strip():
+            issues.append("BEFORE block is empty — would corrupt file on apply")
+            return issues  # no further checks make sense
+
         # ① Syntax of the proposed replacement
         if ext in {".json", ".jsonc"}:
             try:

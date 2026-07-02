@@ -36,15 +36,17 @@ class Swarm:
 
     def __init__(
         self,
-        retriever: RetrieverAgent,
-        reasoner:  ReasonerAgent,
-        editor:    EditorAgent,
-        validator: ValidatorAgent,
-        console:   Console,
+        retriever:   RetrieverAgent,
+        reasoner:    ReasonerAgent,
+        editor:      EditorAgent,
+        validator:   ValidatorAgent,
+        console:     Console,
+        llm_backend: object | None = None,
     ) -> None:
-        self._agents   = [retriever, reasoner, editor, validator]
-        self._labels   = ["Retriever", "Reasoner", "Editor", "Validator"]
-        self._console  = console
+        self._agents      = [retriever, reasoner, editor, validator]
+        self._labels      = ["Retriever", "Reasoner", "Editor", "Validator"]
+        self._console     = console
+        self._llm_backend = llm_backend
 
     # ── Main run loop ─────────────────────────────────────────────────────
 
@@ -59,12 +61,24 @@ class Swarm:
 
         c = self._console
 
+        # Resolve the actual LLM label from the retriever's llm_backend if available
+        llm_label = ctx.llm_model or "none (rule-based)"
+        retriever = self._agents[0]
+        if hasattr(retriever, "_router"):
+            pass  # label comes from ctx.llm_model which is set by caller
+        # Use llm_backend provider name if it was passed into swarm
+        if hasattr(self, "_llm_backend") and self._llm_backend is not None:
+            pname = getattr(self._llm_backend, "provider_name", "")
+            mname = getattr(self._llm_backend, "model", "")
+            if pname:
+                llm_label = f"{pname}/{mname}" if mname else pname
+
         c.print(Rule("[bold cyan]Graphify Swarm[/]"))
         c.print(f"[bold]Task:[/] {task}")
         c.print(
             f"[dim]Mode:[/] {mode}  "
             f"[dim]Top-K:[/] {ctx.top_k}  "
-            f"[dim]LLM:[/] {ctx.llm_model or 'none (rule-based)'}\n"
+            f"[dim]LLM:[/] {llm_label}\n"
         )
 
         for i, (agent, label) in enumerate(zip(self._agents, self._labels), 1):
@@ -241,11 +255,12 @@ def build_swarm(
         llm = OllamaLLM(model=llm_model, host=ollama_host)
 
     return Swarm(
-        retriever = RetrieverAgent(qdrant_dir, embedder_cache, graph_json_path,
-                                   qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key,
-                                   score_threshold=score_threshold),
-        reasoner  = ReasonerAgent(llm=llm),
-        editor    = EditorAgent(llm=llm),
-        validator = ValidatorAgent(repo_paths=repo_paths),
-        console   = console,
+        retriever    = RetrieverAgent(qdrant_dir, embedder_cache, graph_json_path,
+                                      qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key,
+                                      score_threshold=score_threshold),
+        reasoner     = ReasonerAgent(llm=llm),
+        editor       = EditorAgent(llm=llm),
+        validator    = ValidatorAgent(repo_paths=repo_paths),
+        console      = console,
+        llm_backend  = llm_backend,
     )

@@ -1,8 +1,14 @@
 
-# graphify — all generated outputs (rebuilt locally via `graphify rebuild`)
-graphify-out/
+# graphify — binary outputs (non-portable; rebuilt locally)
+graphify-out/qdrant/
+graphify-out/cache/embeddings/
+graphify-out/memory/
+# Everything else in graphify-out (chunks.jsonl, graph.*, summaries.json) IS committed
 
 *.egg-info/
+__pycache__/
+*.pyc
+*.pyo
 
 # secrets — never commit
 .env

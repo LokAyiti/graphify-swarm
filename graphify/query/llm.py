@@ -376,6 +376,10 @@ class DatabricksLLM(BaseLLM):
         messages: list[dict],
         timeout:  int = 180,
     ) -> Generator[str, None, None]:
+        # Issue #9: Databricks invocations endpoint does not support SSE streaming.
+        # We read the full response in one shot but yield token-by-token so the
+        # caller gets the same interface as streaming backends — visible latency
+        # is the same, but the UX is a single flush rather than a trickle.
         body = json.dumps({
             "messages":    messages,
             "temperature": 0.2,
@@ -399,8 +403,9 @@ class DatabricksLLM(BaseLLM):
                     .get("message", {})
                     .get("content", "")
                 )
-                if answer:
-                    yield answer
+                # Yield word-by-word to give a streaming feel
+                for word in answer.split(" "):
+                    yield word + " "
         except urllib.error.URLError as exc:
             raise ConnectionError(
                 f"Databricks API error at {self.endpoint}: {exc}"
@@ -410,6 +415,8 @@ class DatabricksLLM(BaseLLM):
 # ---------------------------------------------------------------------------
 # Factory — auto-detect provider from environment
 # ---------------------------------------------------------------------------
+
+_KNOWN_PROVIDERS = frozenset({"databricks", "openai", "anthropic", "google", "ollama"})
 
 _DEFAULT_MODELS: dict[str, str] = {
     "databricks": "databricks-claude-sonnet-4-6",
@@ -456,6 +463,13 @@ def build_llm(
     resolved_provider = provider or detect_provider() or "ollama"
     resolved_model    = model or _DEFAULT_MODELS.get(resolved_provider, "llama3")
 
+    # Issue #5: validate provider early — unknown string would silently fall through to Ollama
+    if resolved_provider not in _KNOWN_PROVIDERS:
+        raise ValueError(
+            f"Unknown provider '{resolved_provider}'. "
+            f"Valid options: {', '.join(sorted(_KNOWN_PROVIDERS))}"
+        )
+
     if resolved_provider == "ollama":
         return OllamaLLM(model=resolved_model, host=ollama_host)
 
@@ -469,24 +483,27 @@ def build_llm(
         return OllamaLLM(model=_DEFAULT_MODELS["ollama"], host=ollama_host)
 
     if resolved_provider == "openai":
+        key = os.environ.get("OPENAI_API_KEY", "")
+        if not key:
+            raise ValueError("OPENAI_API_KEY is not set in .env")
         return OpenAICompatibleLLM(
             model=resolved_model,
-            api_key=os.environ.get("OPENAI_API_KEY", ""),
+            api_key=key,
             base_url="https://api.openai.com/v1",
             provider="openai",
         )
 
     if resolved_provider == "anthropic":
-        return AnthropicLLM(
-            model=resolved_model,
-            api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
-        )
+        key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if not key:
+            raise ValueError("ANTHROPIC_API_KEY is not set in .env")
+        return AnthropicLLM(model=resolved_model, api_key=key)
 
     if resolved_provider == "google":
-        return GoogleLLM(
-            model=resolved_model,
-            api_key=os.environ.get("GOOGLE_API_KEY", ""),
-        )
+        key = os.environ.get("GOOGLE_API_KEY", "")
+        if not key:
+            raise ValueError("GOOGLE_API_KEY is not set in .env")
+        return GoogleLLM(model=resolved_model, api_key=key)
 
     return OllamaLLM(model=resolved_model, host=ollama_host)
 
@@ -496,9 +513,9 @@ def build_llm_messages(
     user_query:    str,
     context:       str,
 ) -> list[dict]:
-    """Return the messages list compatible with all provider backends."""
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user",   "content": f"{context}\n\nQuestion: {user_query}"},
-    ]
+    """Compatibility shim — use merger.build_llm_messages() for the full structured prompt."""
+    # Issue #8: this function is dead (merger.build_llm_messages is the real one).
+    # Kept only to avoid ImportError if someone imports it; delegates to the real version.
+    from graphify.query.merger import build_llm_messages as _real
+    return _real(context=context, question=user_query)
 
