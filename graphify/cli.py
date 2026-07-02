@@ -1,14 +1,14 @@
-"""
-graphify CLI — Phase 1 + Phase 2
+﻿"""
+graphify CLI â€” Phase 1 + Phase 2
 
 Commands
 --------
-  graphify index <repo1> [<repo2> …]   index one or more local repos (vectors)
+  graphify index <repo1> [<repo2> â€¦]   index one or more local repos (vectors)
   graphify query "<question>"           semantic search across all indexed repos
   graphify status                       show what's indexed
   graphify clear [--repo NAME]          remove index data
 
-  graphify graph <repo1> [<repo2> …]   extract code graph → graph.json + graph.html + GRAPH_REPORT.md
+  graphify graph <repo1> [<repo2> â€¦]   extract code graph â†’ graph.json + graph.html + GRAPH_REPORT.md
   graphify visualize                    open graph.html in the default browser
   graphify report                       regenerate GRAPH_REPORT.md from existing graph.json
 
@@ -34,7 +34,7 @@ load_dotenv(dotenv_path=Path(".env"), override=False)
 
 app = typer.Typer(
     name="graphify",
-    help="Local code knowledge graph — index repos, query them semantically.",
+    help="Local code knowledge graph â€” index repos, query them semantically.",
     add_completion=False,
     no_args_is_help=True,
 )
@@ -98,7 +98,7 @@ def index(
     reindex: bool          = typer.Option(False, "--reindex", help="Clear and re-index even if already indexed"),
     all_:    bool          = typer.Option(False, "--all",     help="Index all repos registered in .graphify.json"),
 ):
-    """Index one or more local repos (chunk → embed → store in Qdrant)."""
+    """Index one or more local repos (chunk â†’ embed â†’ store in Qdrant)."""
     from graphify.config import load_config
     from graphify.indexer.chunker import chunk_file
     from graphify.indexer.embedder import Embedder
@@ -112,7 +112,7 @@ def index(
     if all_ or not repos:
         cfg = load_config(CONFIG_FILE)
         if not cfg.repos:
-            console.print("[red]No repos in .graphify.json — run: graphify add-repo <path>[/]")
+            console.print("[red]No repos in .graphify.json â€” run: graphify add-repo <path>[/]")
             raise typer.Exit(1)
         repo_strs = [r.path for r in cfg.repos if r.path]
         if not repo_strs:
@@ -150,7 +150,7 @@ def index(
 
         console.print(Panel(
             f"[white]{repo_path}[/]",
-            title=f"[bold cyan]Indexing — {repo_name}[/]",
+            title=f"[bold cyan]Indexing â€” {repo_name}[/]",
         ))
 
         if reindex:
@@ -164,7 +164,7 @@ def index(
             continue
 
         if not files:
-            console.print("  [yellow]No indexable files found — skipping.[/]")
+            console.print("  [yellow]No indexable files found â€” skipping.[/]")
             continue
 
         console.print(f"  Found [bold]{len(files)}[/] files\n")
@@ -181,7 +181,7 @@ def index(
             console=console,
             transient=True,
         ) as prog:
-            task = prog.add_task("Chunking files…", total=len(files))
+            task = prog.add_task("Chunking filesâ€¦", total=len(files))
             for fpath in files:
                 try:
                     chunks = chunk_file(fpath, repo_path, repo_name)
@@ -196,7 +196,7 @@ def index(
                 prog.advance(task)
 
         console.print(f"  Chunks produced: [bold green]{len(all_chunks)}[/]")
-        console.print("  Embedding (first run downloads ~90 MB model)…\n")
+        console.print("  Embedding (first run downloads ~90 MB model)â€¦\n")
 
         # --- Embedding + upsert pass ---
         with Progress(
@@ -207,7 +207,7 @@ def index(
             console=console,
             transient=True,
         ) as prog:
-            task = prog.add_task("Embedding & storing…", total=len(all_chunks))
+            task = prog.add_task("Embedding & storingâ€¦", total=len(all_chunks))
             for i in range(0, len(all_chunks), _EMBED_BATCH):
                 batch  = all_chunks[i: i + _EMBED_BATCH]
                 texts  = [c.content for c in batch]
@@ -223,7 +223,7 @@ def index(
         }
         SUMMARIES_FILE.write_text(json.dumps(summaries, indent=2))
 
-        # ── Save chunk content to chunks.jsonl (portable rebuild source) ──
+        # â”€â”€ Save chunk content to chunks.jsonl (portable rebuild source) â”€â”€
         # Remove old entries for this repo, then append fresh ones
         kept = [c for c in existing_chunks if c.get("repo") != repo_name]
         fresh = [
@@ -247,7 +247,7 @@ def index(
         existing_chunks = all_serialised   # keep in sync for next repo loop
 
         console.print(
-            f"\n  [bold green]✓[/] Done — [bold]{len(all_chunks)}[/] chunks stored "
+            f"\n  [bold green]âœ“[/] Done â€” [bold]{len(all_chunks)}[/] chunks stored "
             f"for [cyan]{repo_name}[/]\n"
         )
 
@@ -301,7 +301,7 @@ def query(
             r.get("repo", ""),
             r.get("file_path", ""),
             r.get("name", "") or f"[{r.get('chunk_type','')}]",
-            f"{r.get('start_line')}–{r.get('end_line')}",
+            f"{r.get('start_line')}â€“{r.get('end_line')}",
         )
 
     console.print(table)
@@ -310,7 +310,7 @@ def query(
         top = results[0]
         console.print(Panel(
             top.get("content", "")[:2000],
-            title=f"[bold]Best match  ·  {top.get('file_path')}:{top.get('start_line')}[/]",
+            title=f"[bold]Best match  Â·  {top.get('file_path')}:{top.get('start_line')}[/]",
             border_style="green",
         ))
 
@@ -387,7 +387,7 @@ def clear(
 
 
 # ---------------------------------------------------------------------------
-# graph  — Phase 2
+# graph  â€” Phase 2
 # ---------------------------------------------------------------------------
 
 GRAPH_JSON_FILE   = OUT_DIR / "graph.json"
@@ -400,7 +400,7 @@ def graph(
     repos: List[str] = typer.Argument(None,  help="Repo paths (omit to use all in .graphify.json)"),
     all_:  bool      = typer.Option(False, "--all", help="Extract graphs from all registered repos"),
 ):
-    """Extract code graph (nodes + edges) → graph.json, graph.html, GRAPH_REPORT.md."""
+    """Extract code graph (nodes + edges) â†’ graph.json, graph.html, GRAPH_REPORT.md."""
     from graphify.config           import load_config
     from graphify.graph.builder    import build_graph, graph_stats
     from graphify.graph.extractor  import extract_file
@@ -429,7 +429,7 @@ def graph(
 
         console.print(Panel(
             f"[white]{repo_path}[/]",
-            title=f"[bold cyan]Graph extraction — {repo_name}[/]",
+            title=f"[bold cyan]Graph extraction â€” {repo_name}[/]",
         ))
 
         try:
@@ -442,7 +442,7 @@ def graph(
             console.print("  [yellow]No indexable files found.[/]")
             continue
 
-        console.print(f"  Extracting graph from [bold]{len(files)}[/] files…\n")
+        console.print(f"  Extracting graph from [bold]{len(files)}[/] filesâ€¦\n")
 
         with Progress(
             SpinnerColumn(),
@@ -452,7 +452,7 @@ def graph(
             console=console,
             transient=True,
         ) as prog:
-            task = prog.add_task("Extracting…", total=len(files))
+            task = prog.add_task("Extractingâ€¦", total=len(files))
             for fpath in files:
                 try:
                     nodes, edges = extract_file(fpath, repo_path, repo_name)
@@ -463,16 +463,16 @@ def graph(
                 prog.advance(task)
 
     if not all_nodes:
-        console.print("[red]No nodes extracted — nothing to build.[/]")
+        console.print("[red]No nodes extracted â€” nothing to build.[/]")
         raise typer.Exit(1)
 
-    console.print("  Building graph…")
+    console.print("  Building graphâ€¦")
     G = build_graph(all_nodes, all_edges, repo_names=repo_names)
 
     stats = graph_stats(G)
     console.print(
-        f"  [bold green]✓[/] Graph built — "
-        f"[bold]{stats['total_nodes']}[/] nodes · "
+        f"  [bold green]âœ“[/] Graph built â€” "
+        f"[bold]{stats['total_nodes']}[/] nodes Â· "
         f"[bold]{stats['total_edges']}[/] edges"
     )
 
@@ -484,14 +484,14 @@ def graph(
 
     # Write outputs
     write_graph_json(G, GRAPH_JSON_FILE)
-    console.print(f"\n  [dim]→[/] {GRAPH_JSON_FILE}")
+    console.print(f"\n  [dim]â†’[/] {GRAPH_JSON_FILE}")
 
     title = ", ".join(repo_names)
     write_graph_html(G, GRAPH_HTML_FILE, title=title)
-    console.print(f"  [dim]→[/] {GRAPH_HTML_FILE}")
+    console.print(f"  [dim]â†’[/] {GRAPH_HTML_FILE}")
 
     write_graph_report(G, GRAPH_REPORT_FILE, repos=repo_names)
-    console.print(f"  [dim]→[/] {GRAPH_REPORT_FILE}")
+    console.print(f"  [dim]â†’[/] {GRAPH_REPORT_FILE}")
 
     console.print(f"\n[bold green]Done.[/]  Open [cyan]{GRAPH_HTML_FILE}[/] in your browser to explore.")
 
@@ -536,11 +536,11 @@ def report():
         repos = sorted({d.get("repo", "") for _, d in G.nodes(data=True) if d.get("repo")})
 
     write_graph_report(G, GRAPH_REPORT_FILE, repos=repos)
-    console.print(f"[green]Report written →[/] {GRAPH_REPORT_FILE}")
+    console.print(f"[green]Report written â†’[/] {GRAPH_REPORT_FILE}")
 
 
 # ---------------------------------------------------------------------------
-# ask  — Phase 3
+# ask  â€” Phase 3
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -555,7 +555,7 @@ def ask(
     context_only: bool          = typer.Option(False, "--context",         help="Print context and exit"),
     ollama_host:  str           = typer.Option("http://localhost:11434", "--host", help="Ollama host URL"),
 ):
-    """Phase 3 — vector search + graph context + LLM answer (auto-detects provider from .env)."""
+    """Phase 3 â€” vector search + graph context + LLM answer (auto-detects provider from .env)."""
     import time as _time
     import sys
 
@@ -567,7 +567,7 @@ def ask(
 
     t_start = _time.perf_counter()
 
-    # ── Setup ──────────────────────────────────────────────────────────────
+    # â”€â”€ Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     graph_path = None
     if not no_graph and GRAPH_JSON_FILE.exists():
         graph_path = GRAPH_JSON_FILE
@@ -580,7 +580,7 @@ def ask(
         console.print("[red]Nothing indexed yet.  Run:  graphify index <path>[/]")
         raise typer.Exit(1)
 
-    # ── Resolve provider + threshold ────────────────────────────────────────
+    # â”€â”€ Resolve provider + threshold â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     resolved_provider = provider or detect_provider() or "ollama"
     # Auto-apply 0.85 threshold for API providers unless the user explicitly set one
     effective_threshold = threshold if threshold > 0 else (0.85 if resolved_provider != "ollama" else None)
@@ -588,8 +588,8 @@ def ask(
     console.print(f"\n[bold cyan]Question:[/] {question}")
     console.print(f"[dim]Provider: {resolved_provider}  |  Threshold: {effective_threshold or 'off'}[/]\n")
 
-    # ── Search ──────────────────────────────────────────────────────────────
-    with console.status("[dim]Searching vectors…[/]", spinner="dots"):
+    # â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    with console.status("[dim]Searching vectorsâ€¦[/]", spinner="dots"):
         hits = router.vector_search(
             question,
             top_k=top_k,
@@ -604,13 +604,13 @@ def ask(
         console.print(f"[yellow]{msg}.[/]")
         raise typer.Exit()
 
-    # ── Graph expand ────────────────────────────────────────────────────────
+    # â”€â”€ Graph expand â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     graph_contexts = []
     if graph_path:
-        with console.status("[dim]Expanding graph context…[/]", spinner="dots"):
+        with console.status("[dim]Expanding graph contextâ€¦[/]", spinner="dots"):
             graph_contexts = router.graph_expand(hits)
 
-    # ── Results table ───────────────────────────────────────────────────────
+    # â”€â”€ Results table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     table = Table(title="Vector Search Results", show_lines=True)
     table.add_column("Score",  style="cyan",   width=7,  no_wrap=True)
     table.add_column("Repo",   style="yellow",  width=15)
@@ -623,16 +623,16 @@ def ask(
             h.repo,
             h.file_path,
             h.name or f"[{h.chunk_type}]",
-            f"{h.start_line}–{h.end_line}",
+            f"{h.start_line}â€“{h.end_line}",
         )
     console.print(table)
 
     if graph_contexts:
         console.print(f"\n[dim]Graph traversal:[/] expanded [bold]{len(graph_contexts)}[/] file(s)")
     elif not no_graph and not GRAPH_JSON_FILE.exists():
-        console.print("\n[dim yellow]No graph.json — run [white]graphify graph <path>[/white] to enable structural context[/]")
+        console.print("\n[dim yellow]No graph.json â€” run [white]graphify graph <path>[/white] to enable structural context[/]")
 
-    # ── Format merged context ────────────────────────────────────────────────
+    # â”€â”€ Format merged context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ctx_text = format_context(hits, graph_contexts)
 
     repos_searched = list({h.repo for h in hits})
@@ -646,7 +646,7 @@ def ask(
         if llm is None:
             return
 
-    # ── Build LLM ──────────────────────────────────────────────────────────
+    # â”€â”€ Build LLM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     backend = build_llm(
         provider=resolved_provider if resolved_provider != "ollama" else (provider or None),
         model=llm,
@@ -677,7 +677,7 @@ def ask(
         threshold=effective_threshold or 0.0,
     )
 
-    console.rule(f"[bold green]Answer  ·  {resolved_provider} / {resolved_model}[/]")
+    console.rule(f"[bold green]Answer  Â·  {resolved_provider} / {resolved_model}[/]")
     console.print()
 
     answer_chars = 0
@@ -697,7 +697,7 @@ def ask(
 
     console.rule()
 
-    # ── Episodic log ────────────────────────────────────────────────────────
+    # â”€â”€ Episodic log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     scores = [h.score for h in hits]
     log_query(
         query=question,
@@ -714,7 +714,7 @@ def ask(
 
 
 # ---------------------------------------------------------------------------
-# swarm  — Phase 4
+# swarm  â€” Phase 4
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -730,16 +730,22 @@ def swarm(
     yes:         bool          = typer.Option(False,  "--yes",  "-y",      help="Skip apply confirmation"),
     ollama_host: str           = typer.Option("http://localhost:11434", "--host"),
 ):
-    """Phase 4 — multi-agent swarm: Retrieve → Reason → Edit → Validate."""
+    """Phase 4 â€” multi-agent swarm: Retrieve â†’ Reason â†’ Edit â†’ Validate."""
     from graphify.agents.swarm import build_swarm
     from graphify.config import load_config
     from graphify.query.llm import build_llm, detect_provider
 
     cfg = load_config(CONFIG_FILE)
-    resolved_provider = provider or detect_provider() or "ollama"
-    effective_threshold = threshold if threshold > 0 else (0.85 if resolved_provider != "ollama" else None)
+    resolved_provider   = provider or cfg.default_provider or detect_provider() or "ollama"
+    cfg_threshold       = cfg.score_threshold
+    effective_threshold = (
+        threshold if threshold > 0
+        else cfg_threshold
+        if cfg_threshold is not None
+        else (0.85 if resolved_provider != "ollama" else None)
+    )
 
-    # ── Load repo paths from summaries.json ─────────────────────────────
+    # â”€â”€ Load repo paths from summaries.json â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     repo_paths: dict = {}
     if SUMMARIES_FILE.exists():
         try:
@@ -756,12 +762,12 @@ def swarm(
         console.print("[red]Nothing indexed yet.  Run:  graphify index <path>[/]")
         raise typer.Exit(1)
 
-    # ── Validate mode ────────────────────────────────────────────────────
+    # â”€â”€ Validate mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if mode not in ("analyze", "edit"):
         console.print("[red]--mode must be 'analyze' or 'edit'[/]")
         raise typer.Exit(1)
 
-    # ── LLM availability check (Ollama only) ─────────────────────────────
+    # â”€â”€ LLM availability check (Ollama only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if llm and resolved_provider == "ollama":
         from graphify.query.llm import OllamaLLM
         backend = OllamaLLM(model=llm, host=ollama_host)
@@ -777,7 +783,7 @@ def swarm(
             )
             raise typer.Exit(1)
 
-    # ── Build LLM backend ────────────────────────────────────────────────
+    # â”€â”€ Build LLM backend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     llm_backend = None
     if llm or resolved_provider != "ollama":
         llm_backend = build_llm(
@@ -786,10 +792,10 @@ def swarm(
             ollama_host=ollama_host,
         )
 
-    # ── Build graph path if available ────────────────────────────────────
+    # â”€â”€ Build graph path if available â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     graph_path = GRAPH_JSON_FILE if GRAPH_JSON_FILE.exists() else None
 
-    # ── Build and run swarm ──────────────────────────────────────────────
+    # â”€â”€ Build and run swarm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     s = build_swarm(
         qdrant_dir       = QDRANT_DIR,
         embedder_cache   = CACHE_DIR,
@@ -810,7 +816,27 @@ def swarm(
         repo_filter=repo,
     )
 
-    # ── Apply edits if requested ─────────────────────────────────────────
+    # â”€â”€ Episodic log for swarm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    import time as _swarm_time
+    from graphify.memory.episodic import log_query as _log_swarm
+    _hits   = ctx.vector_hits or []
+    _scores = [h.score for h in _hits]
+    _repos  = list({h.repo for h in _hits})
+    _model  = getattr(llm_backend, "model", llm or "")
+    _log_swarm(
+        query          = task,
+        repos_searched = _repos,
+        chunks_used    = len(_hits),
+        top_score      = max(_scores) if _scores else 0.0,
+        min_score      = min(_scores) if _scores else 0.0,
+        threshold      = effective_threshold or 0.0,
+        provider       = resolved_provider,
+        model          = _model,
+        answer_chars   = len(ctx.summary or "") + len(ctx.reasoning or ""),
+        latency_s      = sum(ctx.agent_times.values()),
+    )
+
+    # â”€â”€ Apply edits if requested â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     validated_edits = [e for e in ctx.proposed_edits if e.validated]
     if apply and validated_edits:
         console.print(Rule("[bold yellow]Apply Edits[/]"))
@@ -820,52 +846,52 @@ def swarm(
                 f"Apply {len(validated_edits)} validated edit(s) to disk?"
             )
             if not ok:
-                console.print("[yellow]Aborted — no files changed.[/]")
+                console.print("[yellow]Aborted â€” no files changed.[/]")
                 raise typer.Exit()
 
         for edit in validated_edits:
             root      = repo_paths.get(edit.repo, Path(".")).resolve()
             full_path = (root / edit.file_path).resolve()
 
-            # ── Security: path containment check (issue #2) ──────────────
+            # â”€â”€ Security: path containment check (issue #2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if not full_path.is_relative_to(root):
                 console.print(
-                    f"  [red]✗[/] {edit.file_path} — "
+                    f"  [red]âœ—[/] {edit.file_path} â€” "
                     f"path escapes repo root; skipping (possible prompt injection)"
                 )
                 continue
 
             if not full_path.exists():
-                console.print(f"  [red]✗[/] {edit.file_path} — file not found")
+                console.print(f"  [red]âœ—[/] {edit.file_path} â€” file not found")
                 continue
 
             current = full_path.read_text(encoding="utf-8-sig", errors="replace")
 
-            # ── Safety: reject empty BEFORE which would prepend blindly (issue #6)
+            # â”€â”€ Safety: reject empty BEFORE which would prepend blindly (issue #6)
             if not edit.before:
                 console.print(
-                    f"  [yellow]⚠[/] {edit.file_path} — "
+                    f"  [yellow]âš [/] {edit.file_path} â€” "
                     f"BEFORE block is empty; skipping to prevent file corruption"
                 )
                 continue
 
             if edit.before not in current:
                 console.print(
-                    f"  [yellow]⚠[/] {edit.file_path} — "
+                    f"  [yellow]âš [/] {edit.file_path} â€” "
                     f"original text not found verbatim; skipping"
                 )
                 continue
 
             new_content = current.replace(edit.before, edit.after, 1)
             full_path.write_text(new_content, encoding="utf-8")
-            console.print(f"  [green]✓[/] Applied to {full_path}")
+            console.print(f"  [green]âœ“[/] Applied to {full_path}")
 
     elif apply and not validated_edits:
         console.print("[yellow]No validated edits to apply.[/]")
 
 
 # ---------------------------------------------------------------------------
-# init  — set up graphify in the current git repo
+# init  â€” set up graphify in the current git repo
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -884,10 +910,16 @@ def init():
     gi = Path(".gitignore")
     lines_to_add = [
         "",
-        "# graphify — binary Qdrant storage (non-portable; rebuilt via `graphify rebuild`)",
+        "# graphify â€” generated outputs (non-portable; rebuilt locally)",
         "graphify-out/qdrant/",
+        "graphify-out/cache/embeddings/",
+        "graphify-out/memory/",
         "graphify_local.egg-info/",
         "*.egg-info/",
+        "__pycache__/",
+        "*.pyc",
+        "*.pyo",
+        ".env",
     ]
     existing = gi.read_text(encoding="utf-8") if gi.exists() else ""
     new_lines = [l for l in lines_to_add if l and l not in existing]
@@ -908,7 +940,7 @@ def init():
 
 
 # ---------------------------------------------------------------------------
-# add-repo  — register a repo and optionally index + graph it
+# add-repo  â€” register a repo and optionally index + graph it
 # ---------------------------------------------------------------------------
 
 @app.command(name="add-repo")
@@ -929,7 +961,7 @@ def add_repo(
     cfg   = load_config(CONFIG_FILE)
     entry = upsert_repo(cfg, repo_path, name=name)
     save_config(cfg)
-    console.print(f"[green]Registered[/] '{entry.name}' → {entry.path}")
+    console.print(f"[green]Registered[/] '{entry.name}' â†’ {entry.path}")
 
     if not no_index:
         console.print()
@@ -941,7 +973,7 @@ def add_repo(
 
 
 # ---------------------------------------------------------------------------
-# rebuild  — rebuild Qdrant from chunks.jsonl + embedding cache (no source files)
+# rebuild  â€” rebuild Qdrant from chunks.jsonl + embedding cache (no source files)
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -969,16 +1001,16 @@ def rebuild():
     ]
 
     if not raw_chunks:
-        console.print("[yellow]chunks.jsonl is empty — nothing to rebuild.[/]")
+        console.print("[yellow]chunks.jsonl is empty â€” nothing to rebuild.[/]")
         raise typer.Exit()
 
-    console.print(f"  Rebuilding from [bold]{len(raw_chunks)}[/] chunks…")
+    console.print(f"  Rebuilding from [bold]{len(raw_chunks)}[/] chunksâ€¦")
     console.print("  (cached embeddings used where available; new ones computed otherwise)\n")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Wipe and recreate Qdrant (embedded only — Docker/Cloud data persists)
+    # Wipe and recreate Qdrant (embedded only â€” Docker/Cloud data persists)
     import shutil
     if not _qdrant_url(cfg) and QDRANT_DIR.exists():
         shutil.rmtree(QDRANT_DIR)
@@ -994,7 +1026,7 @@ def rebuild():
         console=console,
         transient=True,
     ) as prog:
-        task = prog.add_task("Embedding & storing…", total=len(raw_chunks))
+        task = prog.add_task("Embedding & storingâ€¦", total=len(raw_chunks))
         for i in range(0, len(raw_chunks), _EMBED_BATCH):
             batch_data = raw_chunks[i: i + _EMBED_BATCH]
             chunks = [
@@ -1012,13 +1044,13 @@ def rebuild():
             prog.advance(task, len(chunks))
 
     console.print(
-        f"\n[bold green]✓[/] Rebuilt — [bold]{store.count()}[/] vectors in Qdrant\n"
+        f"\n[bold green]âœ“[/] Rebuilt â€” [bold]{store.count()}[/] vectors in Qdrant\n"
         f"[dim]Run [white]graphify status[/] or [white]graphify ask \"question\"[/] to verify.[/]"
     )
 
 
 # ---------------------------------------------------------------------------
-# sync  — commit graphify outputs and push to GitHub
+# sync  â€” commit graphify outputs and push to GitHub
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -1042,13 +1074,13 @@ def sync(
         )
         return r.returncode, (r.stdout + r.stderr).strip()
 
-    # ── Sanity checks ────────────────────────────────────────────────────
+    # â”€â”€ Sanity checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     code, out = _git("rev-parse", "--is-inside-work-tree")
     if code != 0:
         console.print("[red]Not inside a git repository.[/]")
         raise typer.Exit(1)
 
-    # ── Stage tracked files ──────────────────────────────────────────────
+    # â”€â”€ Stage tracked files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     staged: list[str] = []
     for pattern in _GIT_TRACKED:
         p = Path(pattern)
@@ -1064,13 +1096,13 @@ def sync(
 
     console.print(f"  Staged [bold]{len(staged)}[/] path(s)")
 
-    # ── Check if anything actually changed ──────────────────────────────
+    # â”€â”€ Check if anything actually changed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     code, diff_out = _git("diff", "--cached", "--stat")
     if not diff_out.strip():
-        console.print("[yellow]Nothing changed since last commit — skipping.[/]")
+        console.print("[yellow]Nothing changed since last commit â€” skipping.[/]")
         raise typer.Exit()
 
-    # ── Build auto commit message ────────────────────────────────────────
+    # â”€â”€ Build auto commit message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if not message:
         if SUMMARIES_FILE.exists():
             try:
@@ -1080,14 +1112,14 @@ def sync(
                 message = (
                     f"graphify: update knowledge graph "
                     f"[{', '.join(repo_names)}] "
-                    f"— {total_chunks} chunks"
+                    f"â€” {total_chunks} chunks"
                 )
             except Exception:
                 message = "graphify: update knowledge graph"
         else:
             message = "graphify: update knowledge graph"
 
-    # ── Commit ───────────────────────────────────────────────────────────
+    # â”€â”€ Commit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     code, out = _git("commit", "-m", message)
     if code != 0:
         console.print(f"[red]git commit failed:[/]\n{out}")
@@ -1097,7 +1129,7 @@ def sync(
     if not push:
         raise typer.Exit()
 
-    # ── Push ─────────────────────────────────────────────────────────────
+    # â”€â”€ Push â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     push_args = ["push", remote]
     if branch:
         push_args.append(branch)
@@ -1106,7 +1138,7 @@ def sync(
         console.print(f"[red]git push failed:[/]\n{out}")
         console.print("[dim]Tip: check your GitHub auth (SSH key or token)[/]")
         raise typer.Exit(1)
-    console.print(f"[bold green]✓ Pushed to {remote}[/]")
+    console.print(f"[bold green]âœ“ Pushed to {remote}[/]")
     console.print(
         f"\n[dim]Team members can now:[/]\n"
         f"  git clone https://github.com/LokAyiti/graphify-swarm\n"
@@ -1117,7 +1149,7 @@ def sync(
 
 
 # ---------------------------------------------------------------------------
-# feedback  — Phase 5B
+# feedback  â€” Phase 5B
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -1140,7 +1172,7 @@ def feedback(
 
     last_entry = get_last_query()
     if last_entry is None:
-        console.print("[yellow]No queries logged yet — run graphify ask first.[/]")
+        console.print("[yellow]No queries logged yet â€” run graphify ask first.[/]")
         raise typer.Exit()
 
     result = submit_feedback(
@@ -1152,18 +1184,18 @@ def feedback(
         correction=correction,
     )
 
-    icon  = {"good": "✓", "bad": "✗", "corrected": "↺"}.get(rating, "?")
+    icon  = {"good": "âœ“", "bad": "âœ—", "corrected": "â†º"}.get(rating, "?")
     color = {"good": "green", "bad": "red", "corrected": "yellow"}.get(rating, "white")
-    console.print(f"[{color}]{icon}[/] Feedback recorded — [{color}]{rating}[/] (id={result['feedback_id']})")
+    console.print(f"[{color}]{icon}[/] Feedback recorded â€” [{color}]{rating}[/] (id={result['feedback_id']})")
     if result["promotions"]:
         for p in result["promotions"]:
-            console.print(f"  [bold cyan]🎓 Promoted:[/] {p}")
+            console.print(f"  [bold cyan]ðŸŽ“ Promoted:[/] {p}")
 
     console.print(f"\n[dim]Query:[/] {last_entry.get('query', '')[:80]}")
 
 
 # ---------------------------------------------------------------------------
-# memory  — Phase 5B
+# memory  â€” Phase 5B
 # ---------------------------------------------------------------------------
 
 @app.command(name="memory")
@@ -1195,7 +1227,7 @@ def memory_cmd(
         if not patterns:
             console.print("[yellow]No patterns learned yet.  Run some queries to build up history.[/]")
             return
-        table = Table(title=f"Learned Patterns{' — ' + repo if repo else ''}", show_lines=True)
+        table = Table(title=f"Learned Patterns{' â€” ' + repo if repo else ''}", show_lines=True)
         table.add_column("Repo",       style="cyan",  width=14)
         table.add_column("Keywords",   style="white", width=30)
         table.add_column("Chunks",     style="yellow")
@@ -1226,7 +1258,7 @@ def memory_cmd(
 
 
 # ---------------------------------------------------------------------------
-# patterns  — Phase 5B (shortcut to `memory patterns`)
+# patterns  â€” Phase 5B (shortcut to `memory patterns`)
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -1252,7 +1284,7 @@ def patterns(
 
 
 # ---------------------------------------------------------------------------
-# evolve  — Phase 5B: trigger batch learning from episodic log
+# evolve  â€” Phase 5B: trigger batch learning from episodic log
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -1268,10 +1300,10 @@ def evolve(
     """
     if deep:
         from graphify.memory.evolution_engine import run_evolution
-        with console.status("[dim]Running full evolution engine…[/]", spinner="dots"):
+        with console.status("[dim]Running full evolution engineâ€¦[/]", spinner="dots"):
             report = run_evolution()
 
-        console.print(f"\n[bold green]✓[/] Evolution complete in [bold]{report['duration_s']}s[/]\n")
+        console.print(f"\n[bold green]âœ“[/] Evolution complete in [bold]{report['duration_s']}s[/]\n")
 
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_row("Episodes analysed",  f"[bold]{report['episodes_analysed']}[/]")
@@ -1289,19 +1321,19 @@ def evolve(
         console.print(table)
 
         if report["repos_drifting"]:
-            console.print("\n[bold yellow]⚠ Drift detected — consider re-indexing:[/]")
+            console.print("\n[bold yellow]âš  Drift detected â€” consider re-indexing:[/]")
             for d in report["repos_drifting"]:
                 console.print(
-                    f"  [yellow]•[/] [cyan]{d['repo']}[/]  "
+                    f"  [yellow]â€¢[/] [cyan]{d['repo']}[/]  "
                     f"avg_score dropped {d['drop_pct']}%  "
-                    f"({d['old_avg']} → {d['new_avg']})"
+                    f"({d['old_avg']} â†’ {d['new_avg']})"
                 )
             console.print(
                 "\n[dim]Run: [white]graphify index --all --reindex[/] to refresh affected repos[/]"
             )
         return
 
-    # ── Shallow mode (original behaviour) ────────────────────────────────
+    # â”€â”€ Shallow mode (original behaviour) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from graphify.memory.episodic    import get_last_query
     from graphify.memory.memory_store import record_pattern
     from graphify.memory.episodic    import _LOG_FILE
@@ -1344,7 +1376,7 @@ def evolve(
             new_patterns += 1
 
     console.print(
-        f"[bold green]✓[/] Evolved — processed [bold]{len(episodes)}[/] episodes, "
+        f"[bold green]âœ“[/] Evolved â€” processed [bold]{len(episodes)}[/] episodes, "
         f"updated [bold]{new_patterns}[/] pattern(s).\n"
         f"[dim]Run [white]graphify patterns[/] to see results.  "
         f"Use [white]--deep[/] for full promotion + drift detection.[/]"
@@ -1352,7 +1384,7 @@ def evolve(
 
 
 # ---------------------------------------------------------------------------
-# health  — Phase 5B: system health check
+# health  â€” Phase 5B: system health check
 # ---------------------------------------------------------------------------
 
 @app.command()
@@ -1363,22 +1395,22 @@ def health():
     from graphify.query.llm import detect_provider
 
     cfg      = load_config(CONFIG_FILE)
-    ok_icon  = "[bold green]✓[/]"
-    fail_icon = "[bold red]✗[/]"
-    warn_icon = "[bold yellow]⚠[/]"
+    ok_icon  = "[bold green]âœ“[/]"
+    fail_icon = "[bold red]âœ—[/]"
+    warn_icon = "[bold yellow]âš [/]"
 
     console.print("\n[bold cyan]Graphify Health Check[/]\n")
 
-    # ── Qdrant ───────────────────────────────────────────────────────────
+    # â”€â”€ Qdrant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     qdrant_url = _qdrant_url(cfg) or "embedded (local disk)"
     try:
         store = _store()
         count = store.count()
-        console.print(f"  {ok_icon}  Qdrant     {qdrant_url}  →  {count} vectors")
+        console.print(f"  {ok_icon}  Qdrant     {qdrant_url}  â†’  {count} vectors")
     except Exception as exc:
-        console.print(f"  {fail_icon}  Qdrant     {qdrant_url}  →  [red]{exc}[/]")
+        console.print(f"  {fail_icon}  Qdrant     {qdrant_url}  â†’  [red]{exc}[/]")
 
-    # ── LLM provider ─────────────────────────────────────────────────────
+    # â”€â”€ LLM provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     provider = detect_provider()
     if provider:
         console.print(f"  {ok_icon}  LLM        Provider detected: [cyan]{provider}[/]")
@@ -1389,17 +1421,17 @@ def health():
             _os.environ.get("DATABRICKS_SONNET_ENDPOINT")
             or _os.environ.get("DATABRICKS_OPUS_ENDPOINT")
         ):
-            console.print(f"  {warn_icon}  LLM        DATABRICKS_TOKEN found but no endpoint set — add DATABRICKS_SONNET_ENDPOINT to .env")
+            console.print(f"  {warn_icon}  LLM        DATABRICKS_TOKEN found but no endpoint set â€” add DATABRICKS_SONNET_ENDPOINT to .env")
         else:
-            console.print(f"  {warn_icon}  LLM        No API key found in .env — will use Ollama (local)")
+            console.print(f"  {warn_icon}  LLM        No API key found in .env â€” will use Ollama (local)")
         import urllib.request as _ur
         try:
             _ur.urlopen("http://localhost:11434/api/tags", timeout=2)
             console.print(f"  {ok_icon}  Ollama     running at http://localhost:11434")
         except Exception:
-            console.print(f"  {fail_icon}  Ollama     not reachable — start with: [white]ollama serve[/]")
+            console.print(f"  {fail_icon}  Ollama     not reachable â€” start with: [white]ollama serve[/]")
 
-    # ── Memory ───────────────────────────────────────────────────────────
+    # â”€â”€ Memory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     try:
         info = memory_summary()
         console.print(
@@ -1410,7 +1442,7 @@ def health():
     except Exception as exc:
         console.print(f"  {warn_icon}  Memory     not initialised yet ({exc})")
 
-    # ── Episodic log ─────────────────────────────────────────────────────
+    # â”€â”€ Episodic log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from graphify.memory.episodic import _LOG_FILE
     if _LOG_FILE.exists():
         lines = [l for l in _LOG_FILE.read_text().splitlines() if l.strip()]
@@ -1419,6 +1451,169 @@ def health():
         console.print(f"  {warn_icon}  Episodic   no queries logged yet")
 
     console.print()
+
+
+# ---------------------------------------------------------------------------
+# chat  â€” interactive conversation loop (Phase 6)
+# ---------------------------------------------------------------------------
+
+@app.command()
+def chat(
+    provider:    Optional[str] = typer.Option(None,  "--provider", "-p",
+                                              help="LLM provider (auto-detected from .env)"),
+    llm:         Optional[str] = typer.Option(None,  "--llm",      "-m",
+                                              help="Model name"),
+    repo:        Optional[str] = typer.Option(None,  "--repo",     "-r",
+                                              help="Restrict search to one repo"),
+    threshold:   float         = typer.Option(0.0,   "--threshold", "-t",
+                                              help="Similarity threshold (auto-set for API providers)"),
+    top_k:       int           = typer.Option(6,     "--top-k",    "-k"),
+    no_graph:    bool          = typer.Option(False,  "--no-graph",
+                                              help="Skip graph context"),
+    ollama_host: str           = typer.Option("http://localhost:11434", "--host"),
+):
+    """Interactive chat â€” type questions freely, Ctrl+C or 'exit' to quit.
+
+    Keeps the last 6 exchanges as conversation history so follow-up
+    questions like 'what about the second file?' work correctly.
+    """
+    import sys
+    import time as _time
+    from graphify.config import load_config
+    from graphify.memory.episodic import log_query
+    from graphify.query.llm import build_llm, detect_provider
+    from graphify.query.merger import build_llm_messages, format_context
+    from graphify.query.router import Router
+    from rich.rule import Rule
+
+    cfg                 = load_config(CONFIG_FILE)
+    resolved_provider   = provider or cfg.default_provider or detect_provider() or "ollama"
+    cfg_threshold       = cfg.score_threshold
+    effective_threshold = (
+        threshold if threshold > 0
+        else cfg_threshold if cfg_threshold is not None
+        else (0.85 if resolved_provider != "ollama" else None)
+    )
+
+    graph_path = None if no_graph else (GRAPH_JSON_FILE if GRAPH_JSON_FILE.exists() else None)
+    router     = Router(QDRANT_DIR, CACHE_DIR, graph_json_path=graph_path,
+                        qdrant_url=_qdrant_url(cfg), qdrant_api_key=_qdrant_api_key())
+
+    if router.index_count() == 0:
+        console.print("[red]Nothing indexed yet.  Run:  graphify index <path>[/]")
+        raise typer.Exit(1)
+
+    try:
+        backend = build_llm(
+            provider    = resolved_provider if resolved_provider != "ollama" else None,
+            model       = llm,
+            ollama_host = ollama_host,
+        )
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(1)
+
+    resolved_model = getattr(backend, "model", resolved_provider)
+
+    console.print(Rule("[bold cyan]Graphify Chat[/]"))
+    console.print(
+        f"  [dim]Provider:[/] [cyan]{resolved_provider}[/]  "
+        f"[dim]Model:[/] [cyan]{resolved_model}[/]  "
+        f"[dim]Threshold:[/] [cyan]{effective_threshold or 'off'}[/]"
+        + (f"  [dim]Repo:[/] [cyan]{repo}[/]" if repo else "")
+    )
+    console.print("[dim]  Type your question. Press Ctrl+C or type 'exit' to quit.[/]\n")
+
+    # Conversation history: list of {"role": ..., "content": ...}
+    history: list[dict] = []
+    _MAX_HISTORY = 6   # keep last 3 exchanges (6 messages: 3 user + 3 assistant)
+
+    while True:
+        try:
+            question = input("[bold green]You:[/bold green] ").strip()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Goodbye.[/dim]")
+            break
+
+        if not question:
+            continue
+        if question.lower() in ("exit", "quit", "bye", "q"):
+            console.print("[dim]Goodbye.[/dim]")
+            break
+
+        t_start = _time.perf_counter()
+
+        # â”€â”€ Retrieve context â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        with console.status("[dim]Searchingâ€¦[/]", spinner="dots"):
+            hits = router.vector_search(
+                question, top_k=top_k,
+                repo_filter=repo, score_threshold=effective_threshold,
+            )
+            graph_contexts = router.graph_expand(hits) if graph_path else []
+
+        if not hits:
+            console.print("[yellow]No relevant context found for that question.[/]\n")
+            continue
+
+        repos_found = list({h.repo for h in hits})
+        ctx_text    = format_context(hits, graph_contexts)
+
+        # â”€â”€ Build messages with history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # System + context in the first user message; then interleave history
+        system_msgs = build_llm_messages(
+            context   = ctx_text,
+            question  = question,
+            provider  = resolved_provider,
+            model     = resolved_model,
+            repos     = repos_found,
+            threshold = effective_threshold or 0.0,
+        )
+
+        if history:
+            # Inject conversation history between system and current user message
+            messages = [system_msgs[0]] + history[-_MAX_HISTORY:] + [system_msgs[-1]]
+        else:
+            messages = system_msgs
+
+        # â”€â”€ Stream answer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        console.print(f"\n[bold cyan]Graphify[/] [dim]({resolved_provider})[/]")
+        answer_tokens: list[str] = []
+        try:
+            for token in backend.ask_stream(messages):
+                sys.stdout.write(token)
+                sys.stdout.flush()
+                answer_tokens.append(token)
+            sys.stdout.write("\n\n")
+            sys.stdout.flush()
+        except ConnectionError as exc:
+            console.print(f"\n[red]{exc}[/]\n")
+            continue
+        except Exception as exc:
+            console.print(f"\n[red]LLM error: {exc}[/]\n")
+            continue
+
+        answer = "".join(answer_tokens)
+
+        # â”€â”€ Update history â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        history.append({"role": "user",      "content": question})
+        history.append({"role": "assistant", "content": answer})
+        if len(history) > _MAX_HISTORY:
+            history = history[-_MAX_HISTORY:]
+
+        # â”€â”€ Episodic log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        scores = [h.score for h in hits]
+        log_query(
+            query          = question,
+            repos_searched = repos_found,
+            chunks_used    = len(hits),
+            top_score      = max(scores) if scores else 0.0,
+            min_score      = min(scores) if scores else 0.0,
+            threshold      = effective_threshold or 0.0,
+            provider       = resolved_provider,
+            model          = resolved_model,
+            answer_chars   = len(answer),
+            latency_s      = _time.perf_counter() - t_start,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1431,3 +1626,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

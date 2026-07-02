@@ -133,7 +133,7 @@ class Router:
             language_filter=lang_filter,
             score_threshold=score_threshold,
         )
-        return [
+        hits = [
             VectorHit(
                 score      = r.get("score", 0.0),
                 repo       = r.get("repo", ""),
@@ -147,6 +147,48 @@ class Router:
             )
             for r in raw
         ]
+
+        # ── Apply learned rules from memory (boost matching repos) ────────
+        hits = self._apply_rules(hits, question)
+        return hits
+
+    def _apply_rules(self, hits: List[VectorHit], question: str) -> List[VectorHit]:
+        """Re-score hits using promoted rules from memory_store if available."""
+        try:
+            from graphify.memory.memory_store import _conn
+            words = set(question.lower().split())
+            with _conn() as con:
+                rules = con.execute(
+                    "SELECT trigger, action, trust_score FROM rules ORDER BY trust_score DESC LIMIT 20"
+                ).fetchall()
+            if not rules:
+                return hits
+
+            boost_repos: dict[str, float] = {}
+            for rule in rules:
+                try:
+                    import json as _j
+                    trigger = _j.loads(rule["trigger"])
+                    action  = _j.loads(rule["action"])
+                    kws     = set(trigger.get("keywords", []))
+                    if kws & words:                    # rule matches this query
+                        trust = float(rule["trust_score"])
+                        for repo in action.get("boost_repos", []):
+                            boost_repos[repo] = max(boost_repos.get(repo, 0.0), trust * 0.1)
+                except Exception:
+                    continue
+
+            if not boost_repos:
+                return hits
+
+            # Apply score boost and re-sort
+            for hit in hits:
+                if hit.repo in boost_repos:
+                    hit.score = min(1.0, hit.score + boost_repos[hit.repo])
+            hits.sort(key=lambda h: h.score, reverse=True)
+        except Exception:
+            pass  # memory unavailable — degrade gracefully
+        return hits
 
     # ── Graph traversal ───────────────────────────────────────────────────────
 

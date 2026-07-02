@@ -25,10 +25,13 @@ class RepoEntry:
 
 @dataclass
 class GraphifyConfig:
-    repos:       List[RepoEntry] = field(default_factory=list)
-    default_llm: Optional[str]   = None
-    ollama_host: str              = "http://localhost:11434"
-    qdrant_url:  Optional[str]   = None  # e.g. "http://localhost:6333" for Docker
+    repos:            List[RepoEntry] = field(default_factory=list)
+    default_llm:      Optional[str]   = None
+    ollama_host:      str              = "http://localhost:11434"
+    qdrant_url:       Optional[str]   = None   # e.g. "http://localhost:6333" for Docker
+    default_provider: Optional[str]   = None   # databricks|openai|anthropic|google|ollama
+    score_threshold:  Optional[float] = None   # e.g. 0.85; None = auto (0.85 for APIs, off for Ollama)
+    mcp_enabled:      bool             = False  # reserved for future MCP server integration
 
     @property
     def repo_paths(self) -> Dict[str, Path]:
@@ -52,10 +55,13 @@ def load_config(path: Path = CONFIG_FILE) -> GraphifyConfig:
         raw   = json.loads(path.read_text(encoding="utf-8"))
         repos = [RepoEntry(**r) for r in raw.get("repos", [])]
         return GraphifyConfig(
-            repos       = repos,
-            default_llm = raw.get("default_llm"),
-            ollama_host = raw.get("ollama_host", "http://localhost:11434"),
-            qdrant_url  = raw.get("qdrant_url"),
+            repos             = repos,
+            default_llm       = raw.get("default_llm"),
+            ollama_host       = raw.get("ollama_host", "http://localhost:11434"),
+            qdrant_url        = raw.get("qdrant_url"),
+            default_provider  = raw.get("default_provider"),
+            score_threshold   = raw.get("score_threshold"),
+            mcp_enabled       = bool(raw.get("mcp_enabled", False)),
         )
     except Exception:
         return GraphifyConfig()
@@ -63,10 +69,13 @@ def load_config(path: Path = CONFIG_FILE) -> GraphifyConfig:
 
 def save_config(cfg: GraphifyConfig, path: Path = CONFIG_FILE) -> None:
     data = {
-        "repos":       [asdict(r) for r in cfg.repos],
-        "default_llm": cfg.default_llm,
-        "ollama_host": cfg.ollama_host,
-        "qdrant_url":  cfg.qdrant_url,
+        "repos":            [asdict(r) for r in cfg.repos],
+        "default_llm":      cfg.default_llm,
+        "ollama_host":      cfg.ollama_host,
+        "qdrant_url":       cfg.qdrant_url,
+        "default_provider": cfg.default_provider,
+        "score_threshold":  cfg.score_threshold,
+        "mcp_enabled":      cfg.mcp_enabled,
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
