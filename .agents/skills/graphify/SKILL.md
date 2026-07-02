@@ -209,7 +209,7 @@ QDRANT_API_KEY=
 | `graphify-out/GRAPH_REPORT.md` | Analysis report |
 | `.graphify.json` | Repo registry |
 
-`graphify-out/qdrant/` and `graphify-out/cache/embeddings/` are **gitignored** (large binary files, auto-regenerated locally).
+**Gitignored:** `graphify-out/qdrant/`, `graphify-out/cache/embeddings/`, `graphify-out/memory/`, `.env`
 
 ## Supported Repo Types
 
