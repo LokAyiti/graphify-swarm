@@ -548,17 +548,24 @@ def ask(
     question:     str           = typer.Argument(..., help="Natural-language question"),
     top_k:        int           = typer.Option(8,     "--top-k",   "-k",  help="Vector results"),
     repo:         Optional[str] = typer.Option(None,  "--repo",    "-r",  help="Filter to one repo"),
-    llm:          Optional[str] = typer.Option(None,  "--llm",     "-m",  help="Ollama model (e.g. llama3, codellama)"),
+    llm:          Optional[str] = typer.Option(None,  "--llm",     "-m",  help="Model name (e.g. gpt-4o, llama3, claude-3-5-sonnet-latest)"),
+    provider:     Optional[str] = typer.Option(None,  "--provider","-p",  help="LLM provider: databricks|openai|anthropic|google|ollama (auto-detected from .env if omitted)"),
+    threshold:    float         = typer.Option(0.0,   "--threshold","-t", help="Min similarity score (0.0=off, 0.85=strict). Auto-set to 0.85 for API providers."),
     no_graph:     bool          = typer.Option(False, "--no-graph",        help="Skip graph traversal"),
     context_only: bool          = typer.Option(False, "--context",         help="Print context and exit"),
     ollama_host:  str           = typer.Option("http://localhost:11434", "--host", help="Ollama host URL"),
 ):
-    """Phase 3 — vector search + graph context + optional Ollama answer."""
+    """Phase 3 — vector search + graph context + LLM answer (auto-detects provider from .env)."""
+    import time as _time
     import sys
 
     from graphify.config import load_config
+    from graphify.memory.episodic import log_query
+    from graphify.query.llm import build_llm, detect_provider
     from graphify.query.merger import build_llm_messages, format_context
     from graphify.query.router import Router
+
+    t_start = _time.perf_counter()
 
     # ── Setup ──────────────────────────────────────────────────────────────
     graph_path = None
@@ -566,20 +573,35 @@ def ask(
         graph_path = GRAPH_JSON_FILE
 
     cfg    = load_config(CONFIG_FILE)
-    router = Router(QDRANT_DIR, CACHE_DIR, graph_json_path=graph_path, qdrant_url=_qdrant_url(cfg), qdrant_api_key=_qdrant_api_key())
+    router = Router(QDRANT_DIR, CACHE_DIR, graph_json_path=graph_path,
+                    qdrant_url=_qdrant_url(cfg), qdrant_api_key=_qdrant_api_key())
 
     if router.index_count() == 0:
         console.print("[red]Nothing indexed yet.  Run:  graphify index <path>[/]")
         raise typer.Exit(1)
 
-    console.print(f"\n[bold cyan]Question:[/] {question}\n")
+    # ── Resolve provider + threshold ────────────────────────────────────────
+    resolved_provider = provider or detect_provider() or "ollama"
+    # Auto-apply 0.85 threshold for API providers unless the user explicitly set one
+    effective_threshold = threshold if threshold > 0 else (0.85 if resolved_provider != "ollama" else None)
+
+    console.print(f"\n[bold cyan]Question:[/] {question}")
+    console.print(f"[dim]Provider: {resolved_provider}  |  Threshold: {effective_threshold or 'off'}[/]\n")
 
     # ── Search ──────────────────────────────────────────────────────────────
     with console.status("[dim]Searching vectors…[/]", spinner="dots"):
-        hits = router.vector_search(question, top_k=top_k, repo_filter=repo)
+        hits = router.vector_search(
+            question,
+            top_k=top_k,
+            repo_filter=repo,
+            score_threshold=effective_threshold,
+        )
 
     if not hits:
-        console.print("[yellow]No results found.[/]")
+        msg = "No results found"
+        if effective_threshold:
+            msg += f" above similarity threshold {effective_threshold}"
+        console.print(f"[yellow]{msg}.[/]")
         raise typer.Exit()
 
     # ── Graph expand ────────────────────────────────────────────────────────
@@ -605,64 +627,65 @@ def ask(
         )
     console.print(table)
 
-    # ── Graph context status line ────────────────────────────────────────────
     if graph_contexts:
-        console.print(
-            f"\n[dim]Graph traversal:[/] expanded [bold]{len(graph_contexts)}[/] file(s)"
-        )
-    elif no_graph:
-        console.print("\n[dim]Graph traversal skipped (--no-graph)[/]")
-    elif not GRAPH_JSON_FILE.exists():
-        console.print(
-            "\n[dim yellow]No graph.json — run [white]graphify graph <path>[/white] "
-            "to enable structural context[/]"
-        )
+        console.print(f"\n[dim]Graph traversal:[/] expanded [bold]{len(graph_contexts)}[/] file(s)")
+    elif not no_graph and not GRAPH_JSON_FILE.exists():
+        console.print("\n[dim yellow]No graph.json — run [white]graphify graph <path>[/white] to enable structural context[/]")
 
     # ── Format merged context ────────────────────────────────────────────────
     ctx_text = format_context(hits, graph_contexts)
 
-    if context_only or llm is None:
+    repos_searched = list({h.repo for h in hits})
+
+    if context_only or (llm is None and resolved_provider == "ollama"):
         console.print(Panel(
             ctx_text,
-            title="[bold]Merged Context[/]  "
-                  "[dim](add --llm <model> to generate an answer)[/]",
+            title="[bold]Merged Context[/]  [dim](add --llm <model> or set an API key in .env)[/]",
             border_style="blue",
         ))
+        if llm is None:
+            return
 
-    if llm is None:
-        return
+    # ── Build LLM ──────────────────────────────────────────────────────────
+    backend = build_llm(
+        provider=resolved_provider if resolved_provider != "ollama" else (provider or None),
+        model=llm,
+        ollama_host=ollama_host,
+    )
+    resolved_model = getattr(backend, "model", str(backend.__class__.__name__))
 
-    # ── LLM answer ──────────────────────────────────────────────────────────
-    from graphify.query.llm import OllamaLLM
+    # Ollama validation
+    if resolved_provider == "ollama":
+        if not backend.is_available():
+            console.print(f"\n[red]Ollama not available at {ollama_host}[/]\nStart with: [white]ollama serve[/]")
+            raise typer.Exit(1)
+        if llm and not backend.model_exists():
+            avail = backend.list_models()
+            console.print(
+                f"\n[red]Model '{llm}' not installed.[/]\n"
+                + (f"Available: {', '.join(avail[:6])}\n" if avail else "")
+                + f"Pull it: [white]ollama pull {llm}[/]"
+            )
+            raise typer.Exit(1)
 
-    backend = OllamaLLM(model=llm, host=ollama_host)
+    messages = build_llm_messages(
+        context=ctx_text,
+        question=question,
+        provider=resolved_provider,
+        model=resolved_model,
+        repos=repos_searched,
+        threshold=effective_threshold or 0.0,
+    )
 
-    if not backend.is_available():
-        console.print(
-            f"\n[red]Ollama is not available at {backend.host}[/]\n"
-            f"Start it with:  [white]ollama serve[/]\n"
-            f"Pull a model:   [white]ollama pull {llm}[/]"
-        )
-        raise typer.Exit(1)
-
-    if not backend.model_exists():
-        available = backend.list_models()
-        console.print(
-            f"\n[red]Model '{llm}' is not installed.[/]\n"
-            + (f"Available: {', '.join(available[:6])}\n" if available else "")
-            + f"Pull it with:  [white]ollama pull {llm}[/]"
-        )
-        raise typer.Exit(1)
-
-    messages = build_llm_messages(ctx_text, question)
-
-    console.rule(f"[bold green]Answer from {llm}[/]")
+    console.rule(f"[bold green]Answer  ·  {resolved_provider} / {resolved_model}[/]")
     console.print()
 
+    answer_chars = 0
     try:
         for token in backend.ask_stream(messages):
             sys.stdout.write(token)
             sys.stdout.flush()
+            answer_chars += len(token)
         sys.stdout.write("\n\n")
         sys.stdout.flush()
     except ConnectionError as exc:
@@ -674,6 +697,21 @@ def ask(
 
     console.rule()
 
+    # ── Episodic log ────────────────────────────────────────────────────────
+    scores = [h.score for h in hits]
+    log_query(
+        query=question,
+        repos_searched=repos_searched,
+        chunks_used=len(hits),
+        top_score=max(scores) if scores else 0.0,
+        min_score=min(scores) if scores else 0.0,
+        threshold=effective_threshold or 0.0,
+        provider=resolved_provider,
+        model=resolved_model,
+        answer_chars=answer_chars,
+        latency_s=_time.perf_counter() - t_start,
+    )
+
 
 # ---------------------------------------------------------------------------
 # swarm  — Phase 4
@@ -682,23 +720,24 @@ def ask(
 @app.command()
 def swarm(
     task:        str           = typer.Argument(...,   help="Task or question for the swarm"),
-    mode:        str           = typer.Option("analyze", "--mode", "-x",
-                                              help="analyze | edit"),
-    llm:         Optional[str] = typer.Option(None,   "--llm",  "-m",
-                                              help="Ollama model name"),
+    mode:        str           = typer.Option("analyze", "--mode", "-x",  help="analyze | edit"),
+    llm:         Optional[str] = typer.Option(None,   "--llm",  "-m",     help="Model name"),
+    provider:    Optional[str] = typer.Option(None,   "--provider", "-p", help="LLM provider: databricks|openai|anthropic|google|ollama"),
+    threshold:   float         = typer.Option(0.0,    "--threshold", "-t", help="Min similarity score (auto-set to 0.85 for API providers)"),
     top_k:       int           = typer.Option(6,      "--top-k", "-k"),
     repo:        Optional[str] = typer.Option(None,   "--repo", "-r"),
-    apply:       bool          = typer.Option(False,  "--apply",
-                                              help="Apply validated edits to files (edit mode)"),
-    yes:         bool          = typer.Option(False,  "--yes",  "-y",
-                                              help="Skip apply confirmation"),
+    apply:       bool          = typer.Option(False,  "--apply",           help="Apply validated edits to files (edit mode)"),
+    yes:         bool          = typer.Option(False,  "--yes",  "-y",      help="Skip apply confirmation"),
     ollama_host: str           = typer.Option("http://localhost:11434", "--host"),
 ):
     """Phase 4 — multi-agent swarm: Retrieve → Reason → Edit → Validate."""
     from graphify.agents.swarm import build_swarm
     from graphify.config import load_config
+    from graphify.query.llm import build_llm, detect_provider
 
     cfg = load_config(CONFIG_FILE)
+    resolved_provider = provider or detect_provider() or "ollama"
+    effective_threshold = threshold if threshold > 0 else (0.85 if resolved_provider != "ollama" else None)
 
     # ── Load repo paths from summaries.json ─────────────────────────────
     repo_paths: dict = {}
@@ -722,39 +761,45 @@ def swarm(
         console.print("[red]--mode must be 'analyze' or 'edit'[/]")
         raise typer.Exit(1)
 
-    # ── LLM availability check ───────────────────────────────────────────
-    if llm:
+    # ── LLM availability check (Ollama only) ─────────────────────────────
+    if llm and resolved_provider == "ollama":
         from graphify.query.llm import OllamaLLM
         backend = OllamaLLM(model=llm, host=ollama_host)
         if not backend.is_available():
-            console.print(
-                f"[red]Ollama not available at {ollama_host}[/]\n"
-                f"Start with:  [white]ollama serve[/]"
-            )
+            console.print(f"[red]Ollama not available at {ollama_host}[/]\nStart with: [white]ollama serve[/]")
             raise typer.Exit(1)
         if not backend.model_exists():
             avail = backend.list_models()
             console.print(
                 f"[red]Model '{llm}' not installed.[/]\n"
                 + (f"Available: {', '.join(avail[:6])}\n" if avail else "")
-                + f"Pull with:  [white]ollama pull {llm}[/]"
+                + f"Pull with: [white]ollama pull {llm}[/]"
             )
             raise typer.Exit(1)
+
+    # ── Build LLM backend ────────────────────────────────────────────────
+    llm_backend = None
+    if llm or resolved_provider != "ollama":
+        llm_backend = build_llm(
+            provider=resolved_provider if resolved_provider != "ollama" else None,
+            model=llm,
+            ollama_host=ollama_host,
+        )
 
     # ── Build graph path if available ────────────────────────────────────
     graph_path = GRAPH_JSON_FILE if GRAPH_JSON_FILE.exists() else None
 
     # ── Build and run swarm ──────────────────────────────────────────────
     s = build_swarm(
-        qdrant_dir      = QDRANT_DIR,
-        embedder_cache  = CACHE_DIR,
-        graph_json_path = graph_path,
-        repo_paths      = repo_paths,
-        llm_model       = llm,
-        ollama_host     = ollama_host,
-        qdrant_url      = _qdrant_url(cfg),
-        qdrant_api_key  = _qdrant_api_key(),
-        console         = console,
+        qdrant_dir       = QDRANT_DIR,
+        embedder_cache   = CACHE_DIR,
+        graph_json_path  = graph_path,
+        repo_paths       = repo_paths,
+        llm_backend      = llm_backend,
+        qdrant_url       = _qdrant_url(cfg),
+        qdrant_api_key   = _qdrant_api_key(),
+        score_threshold  = effective_threshold,
+        console          = console,
     )
 
     ctx = s.run(

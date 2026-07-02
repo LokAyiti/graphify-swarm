@@ -24,14 +24,18 @@ class RetrieverAgent(BaseAgent):
         graph_json_path: Optional[Path] = None,
         qdrant_url:      Optional[str]  = None,
         qdrant_api_key:  Optional[str]  = None,
+        score_threshold: Optional[float] = None,
     ) -> None:
-        self._router = Router(qdrant_dir, embedder_cache, graph_json_path, qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key)
+        self._router    = Router(qdrant_dir, embedder_cache, graph_json_path,
+                                 qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key)
+        self._threshold = score_threshold
 
     def run(self, ctx: RunContext) -> RunContext:
         hits, graph_contexts = self._router.route(
             ctx.task,
             top_k=ctx.top_k,
             repo_filter=ctx.repo_filter,
+            score_threshold=self._threshold,
         )
         ctx.vector_hits    = hits
         ctx.graph_contexts = graph_contexts

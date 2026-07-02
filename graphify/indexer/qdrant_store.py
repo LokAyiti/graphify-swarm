@@ -118,10 +118,11 @@ class QdrantStore:
         top_k: int = 10,
         repo_filter: str | None = None,
         language_filter: str | None = None,
+        score_threshold: float | None = None,
     ) -> List[dict]:
         """Return top-k semantically similar chunks.
 
-        Optionally filter by repo name and/or language.
+        Optionally filter by repo name, language, and/or minimum similarity score.
         """
         must_clauses = []
         if repo_filter:
@@ -135,13 +136,17 @@ class QdrantStore:
 
         query_filter = Filter(must=must_clauses) if must_clauses else None
 
-        response = self._client.query_points(
+        kwargs: dict = dict(
             collection_name=_COLLECTION,
             query=query_vector,
             limit=top_k,
             query_filter=query_filter,
             with_payload=True,
         )
+        if score_threshold is not None:
+            kwargs["score_threshold"] = score_threshold
+
+        response = self._client.query_points(**kwargs)
         return [{"score": h.score, **h.payload} for h in response.points]
 
     def count(self) -> int:

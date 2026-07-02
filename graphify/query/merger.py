@@ -104,16 +104,47 @@ def format_context(
     return "".join(parts)
 
 
-def build_llm_messages(context: str, question: str) -> list[dict]:
-    """Return an Ollama-compatible messages list for the chat API."""
+def build_llm_messages(
+    context:   str,
+    question:  str,
+    provider:  str = "ollama",
+    model:     str = "",
+    repos:     list[str] | None = None,
+    threshold: float = 0.0,
+) -> list[dict]:
+    """Return a messages list for any provider's chat endpoint.
+
+    Uses the structured Graphify system prompt that enforces repo citation,
+    adapts verbosity based on provider, and structures swarm-mode output.
+    """
+    repo_names   = ", ".join(repos) if repos else "(all indexed repos)"
+    provider_str = "ollama" if provider == "ollama" else "api"
+    threshold_str = f"{threshold:.2f}" if threshold else "none"
+
     system = (
-        "You are an expert code analyst and software architect. "
-        "Answer the user's question using ONLY the provided context. "
-        "Be precise and cite specific files, functions, or line numbers when relevant. "
-        "If the answer is not in the context, clearly state what is missing."
+        f"You are Graphify, a multi-repo code knowledge assistant.\n\n"
+        f"CONTEXT SOURCE: {repo_names}\n"
+        f"PROVIDER: {provider_str}\n"
+        f"MODEL: {model or provider}\n"
+        f"MIN_SIMILARITY_THRESHOLD: {threshold_str}\n\n"
+        "Below is the retrieved context, grouped by repo. Each chunk is tagged with "
+        "its source repo, file path, and cosine similarity score. "
+        f"Only use chunks with a similarity score >= {threshold_str if threshold_str != 'none' else '0.0'}. "
+        "If no chunks meet this threshold, say so explicitly instead of guessing.\n\n"
+        "Rules:\n"
+        "1. Always cite which repo and file a fact came from, "
+        "e.g. [repo: pipeline, file: cashier.py].\n"
+        "2. Never blend logic from two different repos unless the user explicitly asks "
+        "for a cross-repo comparison.\n"
+        "3. If the user's query matches multiple repos, list which repos were searched "
+        "and which ones returned relevant context.\n"
+        "4. If PROVIDER is 'ollama' (free local fallback), keep answers concise since "
+        "local models have smaller context windows.\n"
+        "5. If PROVIDER is 'api', you may give a more detailed, multi-step analysis.\n"
+        "6. For 'swarm' mode queries, structure your output as: "
+        "Findings → Evidence (with repo/file tags) → Suggested next action."
     )
-    user = f"Context:\n\n{context}\n\nQuestion: {question}"
     return [
-        {"role": "system",    "content": system},
-        {"role": "user",      "content": user},
+        {"role": "system", "content": system},
+        {"role": "user",   "content": f"{context}\n\nQuestion: {question}"},
     ]

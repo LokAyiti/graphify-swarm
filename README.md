@@ -1,14 +1,19 @@
 # Graphify — Local Code Knowledge Graph
 
-> Index any number of git repos into a searchable, queryable knowledge graph.  
-> Runs **locally** via Docker (Qdrant) — or connect to Qdrant Cloud for team sharing.
+> Index **any** git repository into a searchable, queryable knowledge graph.  
+> Works with **any LLM** — Databricks, OpenAI, Anthropic, Google, or local Ollama.  
+> Runs locally via Docker (Qdrant) or connects to Qdrant Cloud for team sharing.
 
 ```
-graphify add-repo  ./my-repo          # register + index + extract graph
-graphify ask       "how does auth work?"     # semantic search + graph context
+graphify add-repo  ./my-repo          # register + index + extract graph (any repo)
+graphify ask       "how does auth work?"    # auto-uses API key from .env, or Ollama
 graphify swarm     "find duplicate patterns" # 4-agent analysis pipeline
-graphify sync                               # push knowledge to GitHub for the team
+graphify sync                                # push knowledge to GitHub for the team
 ```
+
+> **Works with any repo.** Python, JavaScript, TypeScript, Rust, Go, Markdown, JSON,
+> YAML, SQL, Terraform, Bicep, shell scripts — just run `graphify add-repo <path>`
+> and start querying. No config needed.
 
 ---
 
@@ -29,7 +34,7 @@ infra-tf/                   ├── graph.json                   graphify rebu
 
 ---
 
-## Architecture — Four Phases
+## Architecture — Four Phases + Memory
 
 ```
 Phase 1 · Indexer        Phase 2 · Graph          Phase 3 · Router         Phase 4 · Swarm
@@ -38,16 +43,17 @@ walk repo files          Python AST parsing        vector search (Qdrant)   Retr
   ↓                      JS/TS regex                 +                      Reasoner Agent
 chunk by logic unit      Markdown headings         graph traversal          Editor Agent
   ↓                      JSON/ADF metadata           ↓                     Validator Agent
-embed (384-dim)            ↓                       merged context             ↓
+embed (384-dim)            ↓                       score threshold            ↓
   ↓                      NetworkX graph              ↓                     structured findings
-store in Qdrant          graph.json               Ollama LLM (optional)    proposed edits
+store in Qdrant          graph.json               any LLM provider         proposed edits
 save chunks.jsonl        graph.html (vis.js)      streaming answer         diff + apply
+                                                   episodic log
 ```
 
 **Embedding model:** `all-MiniLM-L6-v2` — 22 M params, 384-dim, ~90 MB download once, then cached.  
 **Vector store:** Qdrant — runs in Docker (`docker compose up -d`) or embedded disk mode (fallback).  
 **Graph library:** NetworkX MultiDiGraph.  
-**LLM (optional):** Any Ollama model via `http://localhost:11434`.
+**LLM:** Auto-detected from `.env`. Priority: Databricks → OpenAI → Anthropic → Google → Ollama.
 
 ---
 
@@ -145,33 +151,39 @@ graphify report
 # Pure vector search — fast, no LLM
 graphify query "what does the cashier pipeline do"
 
-# Vector + graph context (no LLM answer)
+# Vector + graph context — auto-detects provider from .env
 graphify ask "what activities run in the EDR pipelines"
 
-# Vector + graph + Ollama answer (streaming)
-graphify ask "how do the pipelines handle errors" --llm llama3
+# Explicit provider override
+graphify ask "explain error handling" --provider databricks
+graphify ask "explain error handling" --provider openai --llm gpt-4o
+graphify ask "explain error handling" --provider anthropic --llm claude-3-5-sonnet-latest
 
-# Filter to one repo, restrict language
+# Strict similarity threshold (0.85 is auto-applied for API providers)
+graphify ask "find all retry patterns" --threshold 0.88
+
+# Filter to one repo
 graphify ask "find all Python classes" --repo myrepo --lang python
 
-# Print only the merged context (for pasting into any LLM)
+# Print merged context only (paste into any external LLM)
 graphify ask "question" --context
 ```
 
 ### Phase 4 — Swarm (multi-agent)
 
 ```bash
-# Analyze mode (no edits) — rule-based, works without LLM
+# Analyze mode — auto-detects provider from .env
 graphify swarm "what activities run in the cashier pipelines"
 
-# Analyze with LLM-powered reasoning
-graphify swarm "find inconsistencies across EDR pipelines" --llm llama3
+# Explicit provider
+graphify swarm "find inconsistencies across EDR pipelines" --provider databricks
+graphify swarm "find inconsistencies across EDR pipelines" --provider openai --llm gpt-4o
 
 # Edit mode — propose file changes
-graphify swarm "add error handling to all cashier pipelines" --mode edit --llm llama3
+graphify swarm "add error handling" --mode edit --provider databricks
 
 # Edit mode + apply validated diffs to disk
-graphify swarm "fix naming inconsistency" --mode edit --llm llama3 --apply --yes
+graphify swarm "fix naming inconsistency" --mode edit --apply --yes
 ```
 
 ### Maintenance
@@ -281,31 +293,65 @@ graphify ask "question"
 
 ---
 
-## LLM Integration (Ollama)
+## LLM Integration
 
-Graphify works fully without a model. The `--llm` flag enables AI-powered answers.
+Graphify auto-detects the LLM provider from `.env` — **no flag required** if keys are set.
+
+### Provider priority (first configured wins)
+
+| Priority | Provider | Env var | Notes |
+|---|---|---|---|
+| 1 | **Databricks** | `DATABRICKS_TOKEN` + endpoint | Claude via Azure Databricks |
+| 2 | **OpenAI** | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini, etc. |
+| 3 | **Anthropic** | `ANTHROPIC_API_KEY` | Claude direct API |
+| 4 | **Google** | `GOOGLE_API_KEY` | Gemini 1.5 Pro/Flash |
+| 5 | **Ollama** | *(none)* | Local fallback, free |
+
+### CLI examples
 
 ```bash
-# Install Ollama: https://ollama.com
-ollama pull llama3       # or codellama, mistral, phi3, etc.
-ollama serve
+# Auto-detect from .env (recommended)
+graphify ask "how does auth work"
+graphify swarm "find all error handling patterns"
 
-# Use with any command
-graphify ask "explain the duplicate-run check pattern" --llm llama3
-graphify swarm "find pipelines missing Wait_For_API_Propagation" --llm llama3
+# Explicit provider + model
+graphify ask "q" --provider databricks --llm databricks-claude-sonnet-4-6
+graphify ask "q" --provider openai     --llm gpt-4o
+graphify ask "q" --provider anthropic  --llm claude-3-5-sonnet-latest
+graphify ask "q" --provider google     --llm gemini-1.5-pro
+graphify ask "q" --provider ollama     --llm llama3
 
-# Custom Ollama host
-graphify ask "question" --llm llama3 --host http://192.168.1.10:11434
+# Enforce similarity threshold (only high-confidence chunks reach the LLM)
+# Auto-set to 0.85 for API providers, off for Ollama
+graphify ask "q" --threshold 0.88
+
+# Print context only (paste into any LLM yourself)
+graphify ask "q" --context
 ```
 
-**Available models that work well:**
+### Configuring `.env`
 
-| Model | Size | Good for |
-|---|---|---|
-| `llama3` | 4.7 GB | General Q&A, analysis |
-| `codellama` | 3.8 GB | Code-specific questions |
-| `mistral` | 4.1 GB | Fast, good reasoning |
-| `phi3` | 2.3 GB | Lightweight, quick answers |
+```ini
+# Set the provider you want — leave others commented out
+DATABRICKS_TOKEN=dapi...
+DATABRICKS_SONNET_ENDPOINT=https://adb-....azuredatabricks.net/serving-endpoints/...
+
+# OPENAI_API_KEY=sk-...
+# ANTHROPIC_API_KEY=sk-ant-...
+# GOOGLE_API_KEY=AIza...
+```
+
+### Episodic memory
+
+Every `ask` / `swarm` call appends a record to `graphify-out/memory/episodic.jsonl`:
+
+```json
+{"ts": "2026-07-02T10:00:00Z", "query": "...", "provider": "databricks",
+ "model": "databricks-claude-sonnet-4-6", "chunks_used": 8, "top_score": 0.91,
+ "threshold": 0.85, "latency_s": 2.4}
+```
+
+This log is the foundation for future semantic caching and pattern learning.
 
 ---
 

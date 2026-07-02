@@ -219,21 +219,31 @@ def build_swarm(
     embedder_cache:  Path,
     graph_json_path: Optional[Path],
     repo_paths:      Dict[str, Path],
-    llm_model:       Optional[str],
-    ollama_host:     str,
     console:         Console,
-    qdrant_url:      Optional[str] = None,
-    qdrant_api_key:  Optional[str] = None,
+    llm_backend:     Optional[object]  = None,
+    llm_model:       Optional[str]     = None,   # legacy: Ollama model name
+    ollama_host:     str               = "http://localhost:11434",
+    qdrant_url:      Optional[str]     = None,
+    qdrant_api_key:  Optional[str]     = None,
+    score_threshold: Optional[float]   = None,
 ) -> Swarm:
-    """Construct a fully-wired Swarm ready to run."""
+    """Construct a fully-wired Swarm ready to run.
 
-    llm = None
-    if llm_model:
-        from graphify.query.llm import OllamaLLM
+    Pass either *llm_backend* (a BaseLLM instance) or the legacy
+    *llm_model* + *ollama_host* pair.  *llm_backend* takes priority.
+    """
+    from graphify.query.llm import BaseLLM, OllamaLLM
+
+    llm: Optional[BaseLLM] = None
+    if llm_backend is not None:
+        llm = llm_backend  # type: ignore[assignment]
+    elif llm_model:
         llm = OllamaLLM(model=llm_model, host=ollama_host)
 
     return Swarm(
-        retriever = RetrieverAgent(qdrant_dir, embedder_cache, graph_json_path, qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key),
+        retriever = RetrieverAgent(qdrant_dir, embedder_cache, graph_json_path,
+                                   qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key,
+                                   score_threshold=score_threshold),
         reasoner  = ReasonerAgent(llm=llm),
         editor    = EditorAgent(llm=llm),
         validator = ValidatorAgent(repo_paths=repo_paths),

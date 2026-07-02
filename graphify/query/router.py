@@ -116,10 +116,11 @@ class Router:
 
     def vector_search(
         self,
-        question:    str,
-        top_k:       int          = 8,
-        repo_filter: str | None   = None,
-        lang_filter: str | None   = None,
+        question:        str,
+        top_k:           int          = 8,
+        repo_filter:     str | None   = None,
+        lang_filter:     str | None   = None,
+        score_threshold: float | None = None,
     ) -> List[VectorHit]:
         embedder  = self._get_embedder()
         store     = self._get_store()
@@ -130,6 +131,7 @@ class Router:
             top_k=top_k,
             repo_filter=repo_filter,
             language_filter=lang_filter,
+            score_threshold=score_threshold,
         )
         return [
             VectorHit(
@@ -224,13 +226,15 @@ class Router:
 
     def route(
         self,
-        question:    str,
-        top_k:       int        = 8,
-        repo_filter: str | None = None,
-        lang_filter: str | None = None,
+        question:        str,
+        top_k:           int          = 8,
+        repo_filter:     str | None   = None,
+        lang_filter:     str | None   = None,
+        score_threshold: float | None = None,
     ) -> tuple[List[VectorHit], List[GraphContext]]:
         """Run vector search then graph expansion.  Returns (hits, contexts)."""
         hits     = self.vector_search(question, top_k=top_k,
-                                      repo_filter=repo_filter, lang_filter=lang_filter)
+                                      repo_filter=repo_filter, lang_filter=lang_filter,
+                                      score_threshold=score_threshold)
         contexts = self.graph_expand(hits)
         return hits, contexts
