@@ -1257,12 +1257,54 @@ def patterns(
 
 @app.command()
 def evolve(
-    min_score: float = typer.Option(0.80, "--min-score", help="Minimum avg score to record a pattern"),
-    top_k:     int   = typer.Option(100,  "--top-k",     help="Number of recent episodes to analyse"),
+    deep:      bool  = typer.Option(False, "--deep",       help="Run full evolution engine (promote, decay, prune, drift detection)"),
+    min_score: float = typer.Option(0.80,  "--min-score",  help="Minimum avg score to record a pattern (shallow mode only)"),
+    top_k:     int   = typer.Option(100,   "--top-k",      help="Number of recent episodes to analyse (shallow mode only)"),
 ):
-    """Analyse episodic log and extract reusable retrieval patterns."""
-    from graphify.memory.episodic    import _LOG_FILE
+    """Analyse episodic log and extract reusable retrieval patterns.
+
+    Use --deep to run the full evolution engine: pattern promotion,
+    rule decay, pruning, and drift detection.
+    """
+    if deep:
+        from graphify.memory.evolution_engine import run_evolution
+        with console.status("[dim]Running full evolution engine…[/]", spinner="dots"):
+            report = run_evolution()
+
+        console.print(f"\n[bold green]✓[/] Evolution complete in [bold]{report['duration_s']}s[/]\n")
+
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_row("Episodes analysed",  f"[bold]{report['episodes_analysed']}[/]")
+        table.add_row("Patterns upserted",  f"[bold]{report['patterns_upserted']}[/]")
+        table.add_row("Rules promoted",     f"[bold green]{report['rules_promoted']}[/]")
+        table.add_row("Rules decayed",      f"[dim]{report['rules_decayed']}[/]")
+        table.add_row("Rules pruned",       f"[dim red]{report['rules_pruned']}[/]")
+        table.add_row("Total patterns",     f"[bold]{report['total_patterns']}[/]")
+        table.add_row("Total rules",        f"[bold]{report['total_rules']}[/]")
+        fb = report["feedback_summary"]
+        table.add_row(
+            "Feedback",
+            f"[green]{fb['good']} good[/]  [red]{fb['bad']} bad[/]  (total: {fb['total']})"
+        )
+        console.print(table)
+
+        if report["repos_drifting"]:
+            console.print("\n[bold yellow]⚠ Drift detected — consider re-indexing:[/]")
+            for d in report["repos_drifting"]:
+                console.print(
+                    f"  [yellow]•[/] [cyan]{d['repo']}[/]  "
+                    f"avg_score dropped {d['drop_pct']}%  "
+                    f"({d['old_avg']} → {d['new_avg']})"
+                )
+            console.print(
+                "\n[dim]Run: [white]graphify index --all --reindex[/] to refresh affected repos[/]"
+            )
+        return
+
+    # ── Shallow mode (original behaviour) ────────────────────────────────
+    from graphify.memory.episodic    import get_last_query
     from graphify.memory.memory_store import record_pattern
+    from graphify.memory.episodic    import _LOG_FILE
 
     if not _LOG_FILE.exists():
         console.print("[yellow]No episodic log found.  Run some queries first.[/]")
@@ -1286,7 +1328,7 @@ def evolve(
             continue
         repos    = ep.get("repos_searched", [])
         query    = ep.get("query", "")
-        keywords = list(dict.fromkeys(   # deduplicate, preserve order
+        keywords = list(dict.fromkeys(
             w for w in query.lower().split() if len(w) > 3
         ))[:8]
         if not keywords or not repos:
@@ -1304,7 +1346,8 @@ def evolve(
     console.print(
         f"[bold green]✓[/] Evolved — processed [bold]{len(episodes)}[/] episodes, "
         f"updated [bold]{new_patterns}[/] pattern(s).\n"
-        f"[dim]Run [white]graphify patterns[/] to see results.[/]"
+        f"[dim]Run [white]graphify patterns[/] to see results.  "
+        f"Use [white]--deep[/] for full promotion + drift detection.[/]"
     )
 
 

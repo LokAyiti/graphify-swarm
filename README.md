@@ -64,7 +64,7 @@ save chunks.jsonl        graph.html (vis.js)      streaming answer         diff 
 | Python | 3.10 + | 3.11 recommended |
 | Docker Desktop | any | for Qdrant vector store (`docker compose up -d`) |
 | git | any | for `graphify sync` |
-| Ollama | any | **optional** — only for `--llm` flag |
+| Ollama | any | **optional** — only needed if you have no API keys in `.env` |
 
 ---
 
@@ -151,15 +151,19 @@ graphify report
 # Pure vector search — fast, no LLM
 graphify query "what does the cashier pipeline do"
 
-# Vector + graph context — auto-detects provider from .env
+# Ask with auto-detected provider (reads .env)
 graphify ask "what activities run in the EDR pipelines"
 
 # Explicit provider override
 graphify ask "explain error handling" --provider databricks
 graphify ask "explain error handling" --provider openai --llm gpt-4o
 graphify ask "explain error handling" --provider anthropic --llm claude-3-5-sonnet-latest
+graphify ask "explain error handling" --provider google  --llm gemini-1.5-pro
 
-# Strict similarity threshold (0.85 is auto-applied for API providers)
+# Ollama (local, no API key needed)
+graphify ask "explain error handling" --provider ollama --llm llama3
+
+# Strict threshold (0.85 auto-applied for API providers)
 graphify ask "find all retry patterns" --threshold 0.88
 
 # Filter to one repo
@@ -172,7 +176,7 @@ graphify ask "question" --context
 ### Phase 4 — Swarm (multi-agent)
 
 ```bash
-# Analyze mode — auto-detects provider from .env
+# Analyze with auto-detected provider
 graphify swarm "what activities run in the cashier pipelines"
 
 # Explicit provider
@@ -182,8 +186,30 @@ graphify swarm "find inconsistencies across EDR pipelines" --provider openai --l
 # Edit mode — propose file changes
 graphify swarm "add error handling" --mode edit --provider databricks
 
-# Edit mode + apply validated diffs to disk
+# Edit mode + apply validated diffs
 graphify swarm "fix naming inconsistency" --mode edit --apply --yes
+```
+
+### Phase 5 — Memory & Learning
+
+```bash
+# After any `ask` or `swarm` — give feedback on the answer
+graphify feedback good
+graphify feedback bad
+graphify feedback corrected --correction "The correct answer is ..."
+
+# Inspect what Graphify has learned
+graphify memory status          # DB stats
+graphify memory patterns        # learned retrieval patterns
+graphify memory feedback        # feedback breakdown
+graphify patterns               # shortcut for memory patterns
+
+# Run learning cycle
+graphify evolve                 # extract patterns from episodic log
+graphify evolve --deep          # full engine: promote rules, decay, prune, drift detection
+
+# System health check
+graphify health                 # Qdrant + LLM + Memory all in one
 ```
 
 ### Maintenance
@@ -390,14 +416,19 @@ graphify-swarm/
 │   │   └── visualizer.py   ← graph.json + graph.html (vis.js) + GRAPH_REPORT.md
 │   ├── query/
 │   │   ├── router.py       ← vector search + graph BFS expansion
-│   │   ├── merger.py       ← format merged context for LLM
-│   │   └── llm.py          ← Ollama HTTP client (streaming)
+│   │   ├── merger.py       ← format merged context + structured system prompt
+│   │   └── llm.py          ← multi-provider LLM: Databricks, OpenAI, Anthropic, Google, Ollama
+│   ├── memory/
+│   │   ├── episodic.py          ← append-only query log (JSONL)
+│   │   ├── memory_store.py      ← SQLite: patterns, feedback, rules tables
+│   │   ├── feedback_loop.py     ← 3-state feedback + boost/decay
+│   │   └── evolution_engine.py  ← self-learning: promote, decay, prune, drift detection
 │   └── agents/
 │       ├── base.py         ← RunContext, ProposedEdit, BaseAgent
 │       ├── retriever.py    ← Agent 1: vector + graph retrieval
 │       ├── reasoner.py     ← Agent 2: LLM synthesis or rule-based metadata
 │       ├── editor.py       ← Agent 3: LLM diff generation
-│       ├── validator.py    ← Agent 4: JSON/Python syntax + ADF regression check
+│       ├── validator.py    ← Agent 4: syntax + path containment + ADF regression check
 │       └── swarm.py        ← orchestrator + Rich terminal display
 ├── graphify-out/
 │   ├── chunks.jsonl        ← portable chunk content (committed)
@@ -440,10 +471,8 @@ The Qdrant Docker container is not running. Start it with: `docker compose up -d
 Someone with the source repos needs to run `graphify index <path>` and `graphify sync` first.
 
 **Ollama not available**  
-Run `ollama serve` in a separate terminal. Check `graphify ask "q" --host http://localhost:11434`.
-
-**Model not installed**  
-Run `ollama pull llama3` (or whichever model you want to use).
+Ollama is the local fallback — you don't need it if you have an API key in `.env`.
+If you do want Ollama: run `ollama serve` in a separate terminal, then `ollama pull llama3`.
 
 **Qdrant is corrupted / behaves unexpectedly**  
 ```bash
