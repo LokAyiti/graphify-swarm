@@ -1617,6 +1617,30 @@ def chat(
 
 
 # ---------------------------------------------------------------------------
+# mcp  — start MCP server (Model Context Protocol)
+# ---------------------------------------------------------------------------
+
+@app.command()
+def mcp():
+    """Start the Graphify MCP server (reads stdin, writes stdout).
+
+    Connect any MCP-compatible AI tool to your indexed repos:
+      VS Code Copilot, Claude Desktop, Cursor, Windsurf, ChatGPT
+
+    The server exposes 3 tools:
+      search_codebase   -- semantic search across all repos
+      get_file_context  -- graph structure for a specific file
+      list_repos        -- show all indexed repos and stats
+
+    See .vscode/mcp.json for VS Code Copilot configuration.
+    """
+    from graphify.mcp.server import serve
+    console.print("[dim]Graphify MCP server starting — listening on stdin…[/]",
+                  file=sys.stderr)
+    serve()
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

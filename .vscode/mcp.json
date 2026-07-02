@@ -1,0 +1,11 @@
+{
+  "servers": {
+    "graphify": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "graphify.mcp.server"],
+      "cwd": "${workspaceFolder}",
+      "env": {}
+    }
+  }
+}
