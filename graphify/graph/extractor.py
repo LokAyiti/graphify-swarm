@@ -318,6 +318,184 @@ def _extract_json(path: Path, repo_root: Path, repo_name: str) -> ExtractionResu
     )], []
 
 
+# ── Jupyter / Databricks Notebook extractor (.ipynb) ─────────────────────────
+
+def _extract_notebook(path: Path, repo_root: Path, repo_name: str) -> ExtractionResult:
+    """Extract cell-level structure from Jupyter / Databricks .ipynb files.
+
+    Node types produced:
+      - file     — the notebook itself
+      - section  — markdown cells (heading text or first 60 chars)
+      - function — any ``def`` found in code cells (via AST)
+      - import   — any ``import`` / ``from … import`` in code cells
+    """
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
+    rel    = path.relative_to(repo_root).as_posix()
+    fid    = _fid(repo_name, rel)
+
+    nodes: list[GNode] = [GNode(
+        id=fid, type="file", name=path.name,
+        repo=repo_name, file_path=rel, language="notebook",
+    )]
+    edges: list[GEdge] = []
+
+    try:
+        nb = json.loads(source)
+    except json.JSONDecodeError:
+        return nodes, edges
+
+    cells      = nb.get("cells", [])
+    line_cursor = 1   # running line count across cells
+
+    for cell_idx, cell in enumerate(cells):
+        cell_type  = cell.get("cell_type", "")
+        raw_source = cell.get("source", [])
+        cell_text  = "".join(raw_source) if isinstance(raw_source, list) else raw_source
+
+        if cell_type == "markdown":
+            # Use first heading or first 60 chars as the section name
+            heading_match = re.search(r"^#{1,6}\s+(.+)$", cell_text, re.MULTILINE)
+            name = heading_match.group(1).strip() if heading_match else cell_text[:60].strip()
+            if name:
+                sid = _section_id(repo_name, rel, line_cursor)
+                nodes.append(GNode(
+                    id=sid, type="section", name=name,
+                    repo=repo_name, file_path=rel, language="notebook",
+                    start_line=line_cursor,
+                ))
+                edges.append(GEdge(source=fid, target=sid, type="contains"))
+
+        elif cell_type == "code":
+            # Parse code cells as Python (most Databricks/Jupyter cells are Python)
+            try:
+                tree = ast.parse(cell_text)
+            except SyntaxError:
+                tree = None
+
+            if tree:
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                        nid = _func_id(repo_name, rel, node.name,
+                                       line_cursor + node.lineno - 1)
+                        nodes.append(GNode(
+                            id=nid, type="function", name=node.name,
+                            repo=repo_name, file_path=rel, language="notebook",
+                            start_line=line_cursor + node.lineno - 1,
+                            end_line=line_cursor + getattr(node, "end_lineno", node.lineno) - 1,
+                        ))
+                        edges.append(GEdge(source=fid, target=nid, type="contains"))
+
+                    elif isinstance(node, ast.Import):
+                        for alias in node.names:
+                            iid = _import_id(repo_name, alias.name)
+                            nodes.append(GNode(
+                                id=iid, type="import", name=alias.name,
+                                repo=repo_name, file_path=rel, language="notebook",
+                            ))
+                            edges.append(GEdge(source=fid, target=iid, type="imports"))
+
+                    elif isinstance(node, ast.ImportFrom):
+                        module = node.module or "__unknown__"
+                        iid = _import_id(repo_name, module)
+                        nodes.append(GNode(
+                            id=iid, type="import", name=module,
+                            repo=repo_name, file_path=rel, language="notebook",
+                        ))
+                        edges.append(GEdge(source=fid, target=iid, type="imports"))
+
+        line_cursor += cell_text.count("\n") + 1
+
+    return nodes, edges
+
+
+# ── BTEQ / SQL extractor (.bteq, .sql, .ddl) ─────────────────────────────────
+
+# Matches: CREATE [OR REPLACE] [TEMP/TEMPORARY] TABLE|VIEW|PROC|MACRO name
+_SQL_CREATE = re.compile(
+    r"""CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP(?:ORARY)?\s+)?
+        (TABLE|VIEW|PROCEDURE|PROC|MACRO|FUNCTION)\s+
+        (?:\w+\.)?(\w+)""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Matches INSERT INTO / UPDATE / DELETE FROM / MERGE INTO tablename
+_SQL_DML = re.compile(
+    r"""(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|MERGE\s+INTO)\s+(?:\w+\.)?(\w+)""",
+    re.IGNORECASE,
+)
+
+# SELECT ... FROM tablename  (single-level, no subquery detection)
+_SQL_FROM = re.compile(
+    r"""FROM\s+(?:\w+\.)?(\w+)(?:\s|,|$|;)""",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _extract_sql(path: Path, repo_root: Path, repo_name: str) -> ExtractionResult:
+    """Extract table/view/procedure definitions and data-flow edges from SQL/BTEQ files.
+
+    Node types produced:
+      - file      — the script itself
+      - function  — stored procedures, macros, user-defined functions
+      - section   — CREATE TABLE / VIEW definitions (treated as logical sections)
+      - import    — tables/views referenced in FROM / INSERT INTO / MERGE
+    """
+    source = path.read_text(encoding="utf-8-sig", errors="replace")
+    rel    = path.relative_to(repo_root).as_posix()
+    lang   = "bteq" if path.suffix.lower() == ".bteq" else "sql"
+    fid    = _fid(repo_name, rel)
+
+    nodes: list[GNode] = [GNode(
+        id=fid, type="file", name=path.name,
+        repo=repo_name, file_path=rel, language=lang,
+    )]
+    edges: list[GEdge] = []
+
+    # DDL: CREATE TABLE / VIEW / PROCEDURE / MACRO
+    for m in _SQL_CREATE.finditer(source):
+        obj_type = m.group(1).upper()
+        obj_name = m.group(2)
+        line     = _line_of(source, m.start())
+
+        if obj_type in ("PROCEDURE", "PROC", "MACRO", "FUNCTION"):
+            nid = _func_id(repo_name, rel, obj_name, line)
+            nodes.append(GNode(
+                id=nid, type="function", name=obj_name,
+                repo=repo_name, file_path=rel, language=lang,
+                start_line=line,
+            ))
+            edges.append(GEdge(source=fid, target=nid, type="contains"))
+        else:
+            # TABLE or VIEW — treat as a named section
+            sid = _section_id(repo_name, rel, line)
+            label = f"{obj_type}: {obj_name}"
+            nodes.append(GNode(
+                id=sid, type="section", name=label,
+                repo=repo_name, file_path=rel, language=lang,
+                start_line=line,
+            ))
+            edges.append(GEdge(source=fid, target=sid, type="contains"))
+
+    # Data-flow: FROM / INSERT INTO / MERGE — track referenced tables as imports
+    seen_tables: set[str] = set()
+    for pattern in (_SQL_FROM, _SQL_DML):
+        for m in pattern.finditer(source):
+            tbl = m.group(1).upper()
+            # Skip SQL keywords that look like table names
+            if tbl in {"WHERE", "SET", "VALUES", "SELECT", "JOIN", "ON", "AND", "OR"}:
+                continue
+            if tbl not in seen_tables:
+                seen_tables.add(tbl)
+                iid = _import_id(repo_name, tbl)
+                nodes.append(GNode(
+                    id=iid, type="import", name=tbl,
+                    repo=repo_name, file_path=rel, language=lang,
+                ))
+                edges.append(GEdge(source=fid, target=iid, type="imports"))
+
+    return nodes, edges
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
 _EXT_HANDLER = {
@@ -326,6 +504,9 @@ _EXT_HANDLER = {
     ".ts":   _extract_js,  ".tsx": _extract_js,
     ".md":   _extract_markdown,  ".mdx": _extract_markdown,
     ".json": _extract_json, ".jsonc": _extract_json,
+    ".ipynb": _extract_notebook,                          # Jupyter/Databricks
+    ".bteq": _extract_sql,                               # Teradata BTEQ
+    ".sql":  _extract_sql, ".ddl": _extract_sql,         # generic SQL
 }
 
 

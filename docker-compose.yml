@@ -2,7 +2,7 @@ name: graphify-swarm
 
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.6
     container_name: graphify-qdrant
     ports:
       - "6333:6333"   # REST API

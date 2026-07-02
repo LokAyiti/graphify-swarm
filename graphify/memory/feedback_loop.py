@@ -31,6 +31,17 @@ _PROMOTE_MIN_HITS  = 5
 _PROMOTE_MIN_SCORE = 0.80
 _PROMOTE_MIN_GOOD  = 2
 
+# Fix 1: Provider quality weights — a good vote from a cloud model (Claude/GPT)
+# carries more signal than a good vote from a small local Ollama model.
+PROVIDER_WEIGHTS: dict[str, float] = {
+    "databricks": 1.0,
+    "openai":     1.0,
+    "anthropic":  1.0,
+    "google":     0.9,
+    "ollama":     0.6,
+}
+_DEFAULT_WEIGHT = 0.8  # unknown / future providers
+
 
 def submit_feedback(
     query:      str,
@@ -51,15 +62,14 @@ def submit_feedback(
     )
 
     promotions: list[str] = []
+    weight = PROVIDER_WEIGHTS.get(provider, _DEFAULT_WEIGHT)
 
     if rating == "good":
-        # Boost: increment hit_count so the pattern ranks higher
-        _boost_matching_patterns(repos, query)
+        _boost_matching_patterns(repos, query, weight)
         promotions = _maybe_promote(repos)
 
     elif rating in ("bad", "corrected"):
-        # Decay: reduce trust on matching patterns
-        _decay_matching_patterns(repos, query)
+        _decay_matching_patterns(repos, query, weight)
 
     return {
         "feedback_id": fid,
@@ -68,9 +78,11 @@ def submit_feedback(
     }
 
 
-def _boost_matching_patterns(repos: list[str], query: str) -> None:
-    """Increase hit_count on patterns whose keywords appear in the query."""
+def _boost_matching_patterns(repos: list[str], query: str, weight: float = 1.0) -> None:
+    """Increase hit_count (weighted by provider quality) on matching patterns."""
     words = set(query.lower().split())
+    # Fractional boost: a weight=0.6 Ollama vote increments hit_count by 0.6 not 1
+    boost = max(0.1, weight)
     with _conn() as con:
         for repo in repos:
             rows = con.execute(
@@ -79,17 +91,19 @@ def _boost_matching_patterns(repos: list[str], query: str) -> None:
             ).fetchall()
             for row in rows:
                 kws = set(json.loads(row["keywords"] or "[]"))
-                if kws & words:   # at least one keyword overlap
-                    new_count = row["hit_count"] + 1
+                if kws & words:
+                    new_count = round(row["hit_count"] + boost, 3)
                     con.execute(
                         "UPDATE patterns SET hit_count=?, updated_at=? WHERE id=?",
                         (new_count, _now(), row["id"]),
                     )
 
 
-def _decay_matching_patterns(repos: list[str], query: str) -> None:
-    """Reduce avg_score on patterns whose keywords appear in the query."""
-    words = set(query.lower().split())
+def _decay_matching_patterns(repos: list[str], query: str, weight: float = 1.0) -> None:
+    """Reduce avg_score (scaled by provider weight) on matching patterns."""
+    words   = set(query.lower().split())
+    # Stronger decay from a high-quality provider (Databricks bad = bigger signal)
+    decay_factor = 1.0 - (0.1 * weight)   # weight=1.0 → ×0.9; weight=0.6 → ×0.94
     with _conn() as con:
         for repo in repos:
             rows = con.execute(
@@ -99,7 +113,7 @@ def _decay_matching_patterns(repos: list[str], query: str) -> None:
             for row in rows:
                 kws = set(json.loads(row["keywords"] or "[]"))
                 if kws & words:
-                    decayed = max(0.0, round(row["avg_score"] * 0.9, 4))
+                    decayed = max(0.0, round(row["avg_score"] * decay_factor, 4))
                     con.execute(
                         "UPDATE patterns SET avg_score=?, updated_at=? WHERE id=?",
                         (decayed, _now(), row["id"]),
