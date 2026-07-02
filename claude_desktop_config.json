@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "graphify": {
-      "command": "python",
-      "args": ["-m", "graphify.mcp.server"],
+      "command": "graphify",
+      "args": ["mcp-serve"],
       "cwd": "C:\\CICD_Automation"
     }
   }

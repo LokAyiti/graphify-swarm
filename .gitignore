@@ -12,3 +12,14 @@ __pycache__/
 
 # secrets — never commit
 .env
+
+# graphify -- generated outputs (non-portable; rebuilt locally)
+graphify-out/qdrant/
+graphify-out/cache/embeddings/
+graphify-out/memory/
+graphify_local.egg-info/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+.env

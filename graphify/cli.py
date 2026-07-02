@@ -891,13 +891,23 @@ def swarm(
 
 
 # ---------------------------------------------------------------------------
-# init  â€” set up graphify in the current git repo
+# init -- set up graphify in the current git repo
 # ---------------------------------------------------------------------------
 
 @app.command()
-def init():
-    """Initialise graphify: create .graphify.json and update .gitignore."""
-    from graphify.config import GraphifyConfig, save_config
+def init(
+    import_repos: bool = typer.Option(
+        False, "--import-repos",
+        help="Scan common locations for git repos and register them automatically",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Register all discovered repos without prompting"),
+):
+    """Initialise graphify: create .graphify.json and update .gitignore.
+
+    Use --import-repos to auto-discover cloned git repos and eliminate
+    manually editing .graphify.json with hardcoded paths.
+    """
+    from graphify.config import GraphifyConfig, load_config, save_config, upsert_repo
 
     # Create config if missing
     if CONFIG_FILE.exists():
@@ -910,7 +920,7 @@ def init():
     gi = Path(".gitignore")
     lines_to_add = [
         "",
-        "# graphify â€” generated outputs (non-portable; rebuilt locally)",
+        "# graphify -- generated outputs (non-portable; rebuilt locally)",
         "graphify-out/qdrant/",
         "graphify-out/cache/embeddings/",
         "graphify-out/memory/",
@@ -930,15 +940,99 @@ def init():
     else:
         console.print("[dim].gitignore already up to date[/]")
 
+    if import_repos:
+        _discover_and_register(yes=yes)
+        return
+
     console.print(
         "\n[bold]Next steps:[/]\n"
-        "  [cyan]graphify add-repo <path/to/repo>[/]   register a repo\n"
+        "  [cyan]graphify add-repo <path/to/repo>[/]   register a specific repo\n"
+        "  [cyan]graphify init --import-repos[/]       auto-discover git repos on this machine\n"
         "  [cyan]graphify index --all[/]               index all registered repos\n"
         "  [cyan]graphify graph --all[/]               extract graphs\n"
         "  [cyan]graphify sync[/]                      push to GitHub\n"
     )
 
 
+def _discover_and_register(yes: bool = False) -> None:
+    """Scan common locations for git repos and register them in .graphify.json."""
+    from graphify.config import load_config, save_config, upsert_repo
+
+    home = Path.home()
+    scan_roots = [
+        home / "Downloads", home / "Documents", home / "Desktop",
+        home / "dev", home / "projects", home / "repos",
+        home / "source", home / "workspace", home / "code",
+        Path("C:/dev"), Path("C:/repos"), Path("C:/projects"), Path("C:/source"),
+    ]
+
+    console.print("\n[bold cyan]Scanning for git repositories...[/]\n")
+
+    found: list[Path] = []
+    for root in scan_roots:
+        if not root.exists():
+            continue
+        try:
+            for candidate in root.iterdir():
+                if not candidate.is_dir():
+                    continue
+                if (candidate / ".git").exists():
+                    found.append(candidate)
+                else:
+                    try:
+                        for sub in candidate.iterdir():
+                            if sub.is_dir() and (sub / ".git").exists():
+                                found.append(sub)
+                    except PermissionError:
+                        pass
+        except PermissionError:
+            pass
+
+    cwd = Path(".").resolve()
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for p in found:
+        key = str(p.resolve())
+        if key not in seen and p.resolve() != cwd:
+            seen.add(key)
+            unique.append(p.resolve())
+
+    if not unique:
+        console.print("[yellow]No git repositories found in common locations.[/]")
+        console.print("[dim]Use [white]graphify add-repo <path>[/white] to register manually.[/]")
+        return
+
+    cfg = load_config(CONFIG_FILE)
+    registered_paths = {str(Path(r.path).resolve()) for r in cfg.repos if r.path}
+    new_repos = [p for p in unique if str(p) not in registered_paths]
+
+    if not new_repos:
+        console.print("[green]All discovered repos are already registered.[/]")
+        return
+
+    table = Table(title=f"Discovered {len(new_repos)} new git repo(s)", show_lines=True)
+    table.add_column("#",    style="dim",  width=4)
+    table.add_column("Name", style="cyan", width=22)
+    table.add_column("Path", style="white")
+    for i, p in enumerate(new_repos, 1):
+        table.add_row(str(i), p.name, str(p))
+    console.print(table)
+
+    if not yes:
+        answer = typer.confirm(f"\nRegister all {len(new_repos)} repo(s) in .graphify.json?")
+        if not answer:
+            console.print("[yellow]Cancelled.[/]")
+            return
+
+    for p in new_repos:
+        entry = upsert_repo(cfg, p)
+        console.print(f"  [green]+[/] {entry.name}  [dim]{p}[/]")
+
+    save_config(cfg)
+    console.print(
+        f"\n[bold green]Registered {len(new_repos)} repo(s).[/]\n"
+        "[dim]Next: [white]graphify index --all[/] to index them all.[/]"
+    )
 # ---------------------------------------------------------------------------
 # add-repo  â€” register a repo and optionally index + graph it
 # ---------------------------------------------------------------------------
@@ -1636,6 +1730,25 @@ def mcp():
     """
     from graphify.mcp.server import serve
     console.print("[dim]Graphify MCP server starting — listening on stdin…[/]",
+                  file=sys.stderr)
+    serve()
+
+
+
+
+# ---------------------------------------------------------------------------
+# mcp-serve  -- VS Code MCP / Claude Desktop compatible command name
+# ---------------------------------------------------------------------------
+
+@app.command(name="mcp-serve")
+def mcp_serve():
+    """Start the Graphify MCP server (alias for `graphify mcp`, VS Code convention).
+
+    This is the command referenced in .vscode/mcp.json and claude_desktop_config.json.
+    It exposes 3 tools to any MCP-compatible AI: search_codebase, get_file_context, list_repos.
+    """
+    from graphify.mcp.server import serve
+    console.print("[dim]Graphify MCP server starting -- listening on stdin...[/]",
                   file=sys.stderr)
     serve()
 
