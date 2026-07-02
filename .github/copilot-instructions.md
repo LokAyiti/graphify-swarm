@@ -13,32 +13,40 @@ multi-agent analysis using **any LLM** (Databricks, OpenAI, Anthropic, Google, o
 - `.env` — LLM API keys + Qdrant connection (never committed)
 - `requirements.txt` / `pyproject.toml` — dependencies
 
-## CLI Commands (13 total)
+## CLI Commands (21 total)
 
 ```
 Phase 1 – Index     : graphify index, graphify status, graphify clear
 Phase 2 – Graph     : graphify graph, graphify visualize, graphify report
 Phase 3 – Query     : graphify query, graphify ask
 Phase 4 – Swarm     : graphify swarm
-Orchestration       : graphify init, graphify add-repo, graphify rebuild, graphify sync
+Phase 5 – Memory    : graphify feedback, graphify memory, graphify patterns,
+                       graphify evolve, graphify health
+Phase 6 – Chat/MCP  : graphify chat, graphify mcp, graphify mcp-serve
+Orchestration       : graphify init [--import-repos], graphify add-repo,
+                       graphify rebuild, graphify sync
 ```
 
 ## Key Files to Know
 
 | File | Purpose |
 |---|---|
-| `graphify/cli.py` | All CLI commands — typer app with 13 commands |
+| `graphify/cli.py` | All CLI commands — typer app with 21 commands |
 | `graphify/config.py` | `.graphify.json` load/save/upsert helpers |
 | `graphify/indexer/chunker.py` | Python AST + markdown + sliding-window chunking |
 | `graphify/indexer/embedder.py` | sentence-transformers with SHA256 disk cache |
 | `graphify/indexer/qdrant_store.py` | Qdrant CRUD + `query_points` API + `score_threshold` |
-| `graphify/graph/extractor.py` | AST/regex → GNode + GEdge for graph building |
+| `graphify/graph/extractor.py` | AST/regex → GNode + GEdge; .ipynb + .bteq/.sql support |
 | `graphify/graph/visualizer.py` | Writes graph.json + self-contained graph.html |
-| `graphify/query/router.py` | Dual router: vector search (with threshold) + graph BFS |
+| `graphify/query/router.py` | Dual router: vector search (with threshold) + graph BFS + rule boost |
 | `graphify/query/merger.py` | Formats merged context + builds structured system prompt |
 | `graphify/query/llm.py` | Multi-provider LLM: Databricks, OpenAI, Anthropic, Google, Ollama |
 | `graphify/agents/swarm.py` | 4-agent orchestrator: retriever→reasoner→editor→validator |
 | `graphify/memory/episodic.py` | Append-only query log (JSONL) for analytics + future caching |
+| `graphify/memory/memory_store.py` | SQLite: patterns, feedback, rules tables |
+| `graphify/memory/feedback_loop.py` | 3-state feedback + provider-weighted boost/decay |
+| `graphify/memory/evolution_engine.py` | Self-learning: promote rules, decay, prune, drift detection |
+| `graphify/mcp/server.py` | MCP server: search_codebase, get_file_context, list_repos |
 
 ## LLM Provider System
 

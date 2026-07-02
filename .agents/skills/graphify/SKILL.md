@@ -64,6 +64,27 @@ graphify swarm "<task>" --provider databricks            # force Databricks
 graphify swarm "<task>" --mode edit                      # propose edits
 graphify swarm "<task>" --mode edit --apply --yes        # apply edits
 
+# ── Phase 5: Memory & Learning ─────────────────────────────────────────────
+graphify feedback good                    # approve last answer (boosts pattern)
+graphify feedback bad                     # reject last answer (decays pattern)
+graphify feedback corrected --correction "..."  # reject + store correction
+graphify memory status                    # DB stats: patterns, rules, feedback
+graphify memory patterns                  # show learned retrieval patterns
+graphify memory feedback                  # feedback breakdown
+graphify patterns                         # shortcut for memory patterns
+graphify evolve                           # extract patterns from episodic log
+graphify evolve --deep                    # full engine: promote, decay, prune, drift
+graphify health                           # Qdrant + LLM + Memory all in one
+
+# ── Phase 6: Interactive Chat ──────────────────────────────────────────────
+graphify chat                             # interactive loop, auto-searches on every message
+graphify chat --provider databricks       # force provider
+graphify chat --repo <name>              # restrict to one repo
+
+# ── MCP Server (VS Code / Claude Desktop) ──────────────────────────────────
+graphify mcp-serve                        # start MCP server (reads stdin/stdout)
+                                          # tools: search_codebase, get_file_context, list_repos
+
 # ── Team Sync ──────────────────────────────────────────────────────────────
 graphify sync                              # commit + push knowledge outputs
 graphify sync --message "custom msg"      # custom commit message
@@ -92,7 +113,8 @@ graphify/
 ├── graph/       Phase 2 — AST/regex extraction → NetworkX → graph.html
 ├── query/       Phase 3 — vector search + score_threshold + graph BFS + any LLM
 ├── agents/      Phase 4 — Retriever → Reasoner → Editor → Validator
-└── memory/      Episodic query log (graphify-out/memory/episodic.jsonl)
+├── memory/      Phase 5 — episodic log, memory_store (SQLite), feedback_loop, evolution_engine
+└── mcp/         Phase 6 — MCP server (search_codebase, get_file_context, list_repos)
 ```
 
 ## Team Clone Workflow
@@ -164,90 +186,6 @@ DATABRICKS_SONNET_ENDPOINT=https://adb-....azuredatabricks.net/serving-endpoints
 - All NetworkX node_link calls need `edges="links"` kwarg
 - Episodic log never blocks the main flow — failures are silently ignored
 
-
-## Command Quick Reference
-
-```bash
-# ── Docker (start Qdrant first) ────────────────────────────────────────────
-docker compose up -d                       # start Qdrant container
-docker compose stop                        # stop container
-docker logs graphify-qdrant               # view Qdrant logs
-
-# ── Setup ──────────────────────────────────────────────────────────────────
-graphify init                              # create .graphify.json + .gitignore
-graphify add-repo <path>                   # register + index + graph a repo
-graphify add-repo <path> --name <alias>   # register with a custom name
-graphify add-repo <path> --no-index       # register only, skip indexing
-graphify rebuild                           # rebuild Qdrant from chunks.jsonl (no source files)
-
-# ── Phase 1: Index ─────────────────────────────────────────────────────────
-graphify index <path1> <path2>            # index specific repos
-graphify index --all                       # index all repos in .graphify.json
-graphify index --all --reindex            # force full re-index
-graphify status                            # show indexed repos + chunk counts
-graphify clear --repo <name>              # remove one repo from index
-graphify clear --yes                      # remove all index data
-
-# ── Phase 2: Graph ─────────────────────────────────────────────────────────
-graphify graph <path>                      # extract graph from a repo
-graphify graph --all                       # extract from all registered repos
-graphify visualize                         # open graph.html in browser
-graphify report                            # regenerate GRAPH_REPORT.md
-
-# ── Phase 3: Query ─────────────────────────────────────────────────────────
-graphify query "<question>"                # pure vector search (fast)
-graphify ask "<question>"                  # vector + graph context
-graphify ask "<question>" --llm llama3    # + Ollama LLM answer (streaming)
-graphify ask "<question>" --repo <name>   # filter to one repo
-graphify ask "<question>" --context       # print context only (for any LLM)
-
-# ── Phase 4: Swarm ─────────────────────────────────────────────────────────
-graphify swarm "<task>"                    # 4-agent analyze (no LLM)
-graphify swarm "<task>" --llm llama3      # with LLM reasoning
-graphify swarm "<task>" --mode edit --llm llama3          # propose edits
-graphify swarm "<task>" --mode edit --llm llama3 --apply  # apply edits
-
-# ── Team Sync ──────────────────────────────────────────────────────────────
-graphify sync                              # commit + push knowledge outputs
-graphify sync --message "custom msg"      # custom commit message
-graphify sync --no-push                   # commit only
-```
-
-## Architecture
-
-```
-graphify/
-├── indexer/     Phase 1 — chunk, embed (all-MiniLM-L6-v2), store in Qdrant
-├── graph/       Phase 2 — AST/regex extraction → NetworkX → graph.html
-├── query/       Phase 3 — vector search + graph BFS + Ollama LLM
-└── agents/      Phase 4 — Retriever → Reasoner → Editor → Validator
-```
-
-## Team Clone Workflow
-
-```bash
-git clone https://github.com/LokAyiti/graphify-swarm
-pip install -e .
-docker compose up -d     # start Qdrant in Docker Desktop
-graphify rebuild         # rebuilds Qdrant from committed chunks.jsonl
-graphify ask "question"
-```
-
-## Configuration (.graphify.json)
-
-```json
-{
-  "repos": [{"name": "pipeline", "path": "C:\\path\\to\\pipeline"}],
-  "default_llm": "llama3",
-  "ollama_host": "http://localhost:11434",
-  "qdrant_url": null
-}
-```
-
-## Qdrant Connection (.env)
-
-```ini
-# Option A — Local Docker (default)
 QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=
 
