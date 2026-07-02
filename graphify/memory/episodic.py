@@ -96,3 +96,16 @@ def query_stats(last_n: int = 100) -> dict:
         "avg_top_score":    round(sum(r.get("top_score", 0) for r in records) / len(records), 3),
         "providers_used":   providers,
     }
+
+
+def get_last_query() -> Optional[dict]:
+    """Return the most recent episodic log entry, or None if the log is empty."""
+    if not _LOG_FILE.exists():
+        return None
+    lines = [l for l in _LOG_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
+    if not lines:
+        return None
+    try:
+        return json.loads(lines[-1])
+    except json.JSONDecodeError:
+        return None

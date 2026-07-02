@@ -1125,10 +1125,9 @@ def feedback(
     rating:     str           = typer.Argument(..., help="good | bad | corrected"),
     correction: Optional[str] = typer.Option(None, "--correction", "-c",
                                              help="Your corrected answer (use with 'corrected')"),
-    last:       bool          = typer.Option(False, "--last", help="Apply rating to the last logged query"),
 ):
-    """Record feedback on the last answer (good / bad / corrected)."""
-    from graphify.memory.episodic    import _LOG_FILE
+    """Record feedback on the last answer to improve future retrievals."""
+    from graphify.memory.episodic    import get_last_query
     from graphify.memory.feedback_loop import submit_feedback
 
     if rating not in ("good", "bad", "corrected"):
@@ -1139,18 +1138,10 @@ def feedback(
         console.print("[red]--correction is required when rating is 'corrected'[/]")
         raise typer.Exit(1)
 
-    # Read the last query from episodic log
-    if not _LOG_FILE.exists():
+    last_entry = get_last_query()
+    if last_entry is None:
         console.print("[yellow]No queries logged yet — run graphify ask first.[/]")
         raise typer.Exit()
-
-    lines = [l for l in _LOG_FILE.read_text(encoding="utf-8").splitlines() if l.strip()]
-    if not lines:
-        console.print("[yellow]Episodic log is empty.[/]")
-        raise typer.Exit()
-
-    import json as _json
-    last_entry = _json.loads(lines[-1])
 
     result = submit_feedback(
         query=last_entry.get("query", ""),
@@ -1161,7 +1152,7 @@ def feedback(
         correction=correction,
     )
 
-    icon = {"good": "✓", "bad": "✗", "corrected": "↺"}.get(rating, "?")
+    icon  = {"good": "✓", "bad": "✗", "corrected": "↺"}.get(rating, "?")
     color = {"good": "green", "bad": "red", "corrected": "yellow"}.get(rating, "white")
     console.print(f"[{color}]{icon}[/] Feedback recorded — [{color}]{rating}[/] (id={result['feedback_id']})")
     if result["promotions"]:
@@ -1295,7 +1286,9 @@ def evolve(
             continue
         repos    = ep.get("repos_searched", [])
         query    = ep.get("query", "")
-        keywords = [w for w in query.lower().split() if len(w) > 3][:8]
+        keywords = list(dict.fromkeys(   # deduplicate, preserve order
+            w for w in query.lower().split() if len(w) > 3
+        ))[:8]
         if not keywords or not repos:
             continue
         for repo in repos:
@@ -1347,7 +1340,15 @@ def health():
     if provider:
         console.print(f"  {ok_icon}  LLM        Provider detected: [cyan]{provider}[/]")
     else:
-        console.print(f"  {warn_icon}  LLM        No API key found in .env — will use Ollama (local)")
+        # Check if partial Databricks config exists (token but no endpoint)
+        import os as _os
+        if _os.environ.get("DATABRICKS_TOKEN") and not (
+            _os.environ.get("DATABRICKS_SONNET_ENDPOINT")
+            or _os.environ.get("DATABRICKS_OPUS_ENDPOINT")
+        ):
+            console.print(f"  {warn_icon}  LLM        DATABRICKS_TOKEN found but no endpoint set — add DATABRICKS_SONNET_ENDPOINT to .env")
+        else:
+            console.print(f"  {warn_icon}  LLM        No API key found in .env — will use Ollama (local)")
         import urllib.request as _ur
         try:
             _ur.urlopen("http://localhost:11434/api/tags", timeout=2)
