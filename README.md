@@ -301,7 +301,7 @@ docker compose up -d
 graphify rebuild
 
 # Now query anything
-graphify ask "what pipelines are in the PBNA_FC/ACQ/Sybase folder"
+graphify ask "what pipelines are in the ACQ/Sybase folder"
 graphify swarm "which pipelines are missing error handling"
 graphify visualize
 ```
@@ -328,7 +328,7 @@ Graphify auto-detects the LLM provider from `.env` — **no flag required** if k
 | Priority | Provider | Env var | Notes |
 |---|---|---|---|
 | 1 | **Databricks** | `DATABRICKS_TOKEN` + endpoint | Claude via Azure Databricks |
-| 2 | **OpenAI** | `OPENAI_API_KEY` | GPT-4o, GPT-4o-mini, etc. |
+| 2 | **OpenAI** | `OPENAI_API_KEY` | GPT-5, GPT-5-mini, etc. |
 | 3 | **Anthropic** | `ANTHROPIC_API_KEY` | Claude direct API |
 | 4 | **Google** | `GOOGLE_API_KEY` | Gemini 1.5 Pro/Flash |
 | 5 | **Ollama** | *(none)* | Local fallback, free |
@@ -342,7 +342,7 @@ graphify swarm "find all error handling patterns"
 
 # Explicit provider + model
 graphify ask "q" --provider databricks --llm databricks-claude-sonnet-4-6
-graphify ask "q" --provider openai     --llm gpt-4o
+graphify ask "q" --provider openai     --llm gpt-5
 graphify ask "q" --provider anthropic  --llm claude-3-5-sonnet-latest
 graphify ask "q" --provider google     --llm gemini-1.5-pro
 graphify ask "q" --provider ollama     --llm llama3
