@@ -3,7 +3,10 @@
 graphify-out/qdrant/
 graphify-out/cache/embeddings/
 graphify-out/memory/
-# Everything else in graphify-out (chunks.jsonl, graph.*, summaries.json) IS committed
+graphify-out/graph.html
+graphify-out/graph.json
+graphify-out/GRAPH_REPORT.md
+# Everything that IS committed: chunks.jsonl, summaries.json
 
 graphify_local.egg-info/
 *.egg-info/

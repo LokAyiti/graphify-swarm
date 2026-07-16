@@ -231,11 +231,11 @@ All outputs live in `graphify-out/` and are committed to this repo (except Qdran
 | File | Committed | Description |
 |---|---|---|
 | `chunks.jsonl` | ✅ | All chunk content — used by `graphify rebuild` |
-| `cache/embeddings/` | ❌ | SHA256-keyed numpy vectors — gitignored (large binary files), auto-regenerated |
+| `cache/embeddings/` | ❌ | SHA256-keyed numpy vectors — gitignored, auto-regenerated |
 | `summaries.json` | ✅ | Repo metadata (file counts, chunk counts) |
-| `graph.json` | ✅ | NetworkX node-link graph |
-| `graph.html` | ✅ | Interactive vis.js visualization |
-| `GRAPH_REPORT.md` | ✅ | Top nodes, most-imported modules, suggested questions |
+| `graph.json` | ❌ | Generated graph — gitignored (6+ MB), run `graphify graph --all` locally |
+| `graph.html` | ❌ | Generated HTML — gitignored (6+ MB vis.js bundle), open locally |
+| `GRAPH_REPORT.md` | ❌ | Generated report — gitignored, run `graphify report` locally |
 | `qdrant/` | ❌ | Binary Qdrant storage — gitignored, rebuilt locally |
 
 ---
